@@ -1,0 +1,230 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// =====================
+// USER (Seller/Admin only - Buyer không cần tài khoản)
+// =====================
+model User {
+  id            String      @id @default(cuid())
+  
+  // Google OAuth
+  email         String      @unique
+  name          String
+  avatar        String?
+  emailVerified Boolean     @default(false)  // OTP verified
+  
+  // Shop info (seller tự điền khi tạo shop)
+  shopName      String?
+  shopSlug      String?     @unique
+  shopDesc      String?
+  shopAvatar    String?     // Avatar riêng cho shop
+  shopCover     String?     // Ảnh bìa shop
+  
+  // Role & Status
+  role          UserRole    @default(SELLER)
+  status        UserStatus  @default(PENDING)
+  isVerified    Boolean     @default(false)  // Tick xanh
+  
+  // Stats
+  rating        Float       @default(5.0)
+  totalReviews  Int         @default(0)
+  totalSales    Int         @default(0)
+  totalViews    Int         @default(0)
+  
+  // Timestamps
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  approvedAt    DateTime?
+  lastActiveAt  DateTime    @default(now())
+  
+  // Relations
+  accs          Acc[]
+  reviews       Review[]    @relation("ReviewTarget")
+  
+  @@map("users")
+}
+
+enum UserRole {
+  SELLER
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING    // Chờ duyệt
+  APPROVED   // Đã duyệt, được đăng acc
+  REJECTED   // Từ chối
+  BANNED     // Bị cấm
+}
+
+// =====================
+// GAME - Danh mục game
+// =====================
+model Game {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  icon        String
+  image       String?
+  description String?
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  
+  // Dynamic fields for this game type (VD: Rank, Tướng, Skin...)
+  fields      Json     @default("[]")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  accs        Acc[]
+  
+  @@map("games")
+}
+
+// =====================
+// ACC - Tài khoản game rao bán
+// =====================
+model Acc {
+  id            String      @id @default(cuid())
+  
+  // Basic info
+  title         String
+  slug          String      @unique
+  description   String?
+  
+  // Pricing
+  price         Int
+  originalPrice Int?
+  
+  // Game relation
+  gameId        String
+  game          Game        @relation(fields: [gameId], references: [id])
+  
+  // Images
+  images        String[]
+  thumbnail     String
+  
+  // Dynamic attributes based on game (stored as JSON)
+  // VD: [{"label": "Rank", "value": "Kim Cương"}, {"label": "Tướng", "value": "50"}]
+  attributes    Json        @default("[]")
+  
+  // Status
+  status        AccStatus   @default(PENDING)
+  
+  // Promotion flags
+  isVip         Boolean     @default(false)
+  isHot         Boolean     @default(false)
+  vipEndTime    DateTime?
+  
+  // Stats
+  views         Int         @default(0)
+  
+  // Seller
+  sellerId      String
+  seller        User        @relation(fields: [sellerId], references: [id])
+  
+  // Timestamps
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  approvedAt    DateTime?
+  soldAt        DateTime?
+  
+  // Admin note (for rejection reason)
+  adminNote     String?
+  
+  @@index([gameId])
+  @@index([sellerId])
+  @@index([status])
+  @@index([price])
+  @@map("accs")
+}
+
+enum AccStatus {
+  PENDING    // Chờ duyệt
+  APPROVED   // Đang bán
+  REJECTED   // Bị từ chối
+  SOLD       // Đã bán
+}
+
+// =====================
+// REVIEW - Đánh giá seller
+// =====================
+model Review {
+  id          String   @id @default(cuid())
+  
+  // Target seller
+  sellerId    String
+  seller      User     @relation("ReviewTarget", fields: [sellerId], references: [id])
+  
+  // Buyer info (không cần tài khoản, chỉ lưu tên)
+  buyerName   String
+  buyerPhone  String?
+  
+  // Content
+  rating      Int      // 1-5
+  content     String?
+  
+  // Verification
+  isVerified  Boolean  @default(false)  // Admin xác nhận đã mua thật
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  
+  @@index([sellerId])
+  @@map("reviews")
+}
+
+// =====================
+// SITE SETTINGS - Cấu hình website
+// =====================
+model SiteSettings {
+  id            String   @id @default("main")
+  
+  // Admin Zalo contact
+  adminZaloId   String   @default("")
+  adminZaloName String   @default("")
+  adminPhone    String   @default("")
+  
+  // Site info
+  siteName      String   @default("AccVip")
+  siteDesc      String   @default("Mua bán acc game uy tín")
+  
+  // Fee settings
+  feePercent    Float    @default(5.0)  // % phí giao dịch
+  feeMin        Int      @default(10000) // Phí tối thiểu
+  
+  // Social links
+  facebookUrl   String?
+  youtubeUrl    String?
+  tiktokUrl     String?
+  
+  updatedAt     DateTime @updatedAt
+  
+  @@map("site_settings")
+}
+
+// =====================
+// OTP VERIFICATION
+// =====================
+model OtpVerification {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  @@index([email, code])
+  @@map("otp_verifications")
+}

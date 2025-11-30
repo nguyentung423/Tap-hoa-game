@@ -1,0 +1,571 @@
+"use client";
+
+import { useState, useRef } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  Upload,
+  X,
+  Plus,
+  ImageIcon,
+  Sparkles,
+  Info,
+  Check,
+  Loader2,
+  ChevronDown,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { GAMES, type Game, type AccField } from "@/config/games";
+
+interface FormData {
+  gameId: string;
+  title: string;
+  description: string;
+  price: string;
+  originalPrice: string;
+  images: string[];
+  attributes: Record<string, string>;
+}
+
+const initialFormData: FormData = {
+  gameId: "",
+  title: "",
+  description: "",
+  price: "",
+  originalPrice: "",
+  images: [],
+  attributes: {},
+};
+
+export default function PostAccPage() {
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+
+  const selectedGame = GAMES.find((g) => g.id === formData.gameId);
+
+  const handleGameSelect = (gameId: string) => {
+    setFormData({ ...formData, gameId, attributes: {} });
+    setStep(2);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    setIsUploading(true);
+
+    for (const file of Array.from(files)) {
+      try {
+        const formDataUpload = new FormData();
+        formDataUpload.append("file", file);
+
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formDataUpload,
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setFormData((prev) => ({
+            ...prev,
+            images: [...prev.images, data.url].slice(0, 15),
+          }));
+        } else {
+          const errorData = await response.text();
+          console.error("Upload error:", response.status, errorData);
+        }
+      } catch (error) {
+        console.error("Upload error:", error);
+      }
+    }
+
+    setIsUploading(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+
+    const files = e.dataTransfer.files;
+    if (!files) return;
+
+    setIsUploading(true);
+
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/")) continue;
+
+      try {
+        const formDataUpload = new FormData();
+        formDataUpload.append("file", file);
+
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formDataUpload,
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setFormData((prev) => ({
+            ...prev,
+            images: [...prev.images, data.url].slice(0, 15),
+          }));
+        }
+      } catch (error) {
+        console.error("Upload error:", error);
+      }
+    }
+
+    setIsUploading(false);
+  };
+
+  const removeImage = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleSubmit = async () => {
+    console.log("Submitting form data:", formData);
+    setIsSubmitting(true);
+
+    try {
+      // Get the game slug from config
+      const gameSlug = selectedGame?.slug || formData.gameId;
+
+      const response = await fetch("/api/v1/seller/accs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          gameId: gameSlug, // Send slug instead of config id
+          title: formData.title,
+          description: formData.description,
+          price: parseInt(formData.price) || 0,
+          originalPrice: formData.originalPrice
+            ? parseInt(formData.originalPrice)
+            : null,
+          images: formData.images,
+          attributes: formData.attributes,
+        }),
+      });
+
+      const data = await response.json();
+      console.log("API Response:", response.status, data);
+
+      if (!response.ok) {
+        alert(data.error || "Đăng acc thất bại");
+        throw new Error(data.error || "Failed to create acc");
+      }
+
+      router.push("/seller/dashboard?success=true");
+    } catch (error) {
+      console.error("Error creating acc:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const canProceedStep2 =
+    formData.title && formData.price && formData.images.length > 0;
+
+  // Check if all required fields are filled
+  const requiredFieldsFilled =
+    selectedGame?.fields
+      .filter((f) => f.required)
+      .every((f) => formData.attributes[f.key]?.trim()) ?? false;
+
+  const canSubmit = canProceedStep2 && requiredFieldsFilled;
+
+  // Debug log
+  console.log(
+    "Step:",
+    step,
+    "canSubmit:",
+    canSubmit,
+    "requiredFieldsFilled:",
+    requiredFieldsFilled
+  );
+  console.log("Attributes:", formData.attributes);
+  console.log(
+    "Selected game fields:",
+    selectedGame?.fields.filter((f) => f.required)
+  );
+
+  return (
+    <div className="min-h-screen bg-background pb-20 md:pb-6">
+      {/* Header */}
+      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
+        <div className="container py-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => (step > 1 ? setStep(step - 1) : router.back())}
+              className="p-2 -ml-2 rounded-xl hover:bg-muted transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex-1">
+              <h1 className="font-bold text-lg">Đăng bán acc mới</h1>
+              <p className="text-sm text-muted-foreground">
+                Bước {step}/2 • {step === 1 ? "Chọn game" : "Thông tin acc"}
+              </p>
+            </div>
+          </div>
+
+          {/* Progress */}
+          <div className="flex gap-2 mt-4">
+            {[1, 2].map((s) => (
+              <div
+                key={s}
+                className={cn(
+                  "h-1 flex-1 rounded-full transition-colors",
+                  s <= step ? "bg-primary" : "bg-muted"
+                )}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="container py-6">
+        {/* Step 1: Select Game */}
+        {step === 1 && (
+          <div className="space-y-6">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold mb-2">Chọn game</h2>
+              <p className="text-muted-foreground">
+                Bạn muốn bán acc game nào?
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {GAMES.filter((g) => g.isActive).map((game) => (
+                <button
+                  key={game.id}
+                  onClick={() => handleGameSelect(game.id)}
+                  className={cn(
+                    "relative group p-4 rounded-2xl border-2 transition-all text-left",
+                    formData.gameId === game.id
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50 bg-card"
+                  )}
+                >
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-xl bg-muted flex items-center justify-center text-4xl">
+                    {game.icon}
+                  </div>
+                  <h3 className="font-semibold text-center text-sm line-clamp-2">
+                    {game.name}
+                  </h3>
+                  {formData.gameId === game.id && (
+                    <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                      <Check className="w-4 h-4 text-primary-foreground" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Basic Info */}
+        {step === 2 && (
+          <div className="max-w-2xl mx-auto space-y-6">
+            {/* Selected Game */}
+            <div className="glass-card rounded-2xl p-4 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-3xl shrink-0">
+                {selectedGame?.icon}
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground">Game đã chọn</p>
+                <p className="font-semibold">{selectedGame?.name}</p>
+              </div>
+              <button
+                onClick={() => setStep(1)}
+                className="text-sm text-primary hover:underline"
+              >
+                Đổi game
+              </button>
+            </div>
+
+            {/* Image Upload */}
+            <div className="space-y-3">
+              <label className="font-semibold flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-primary" />
+                Hình ảnh acc <span className="text-red-500">*</span>
+                <span className="text-xs text-muted-foreground font-normal ml-auto">
+                  {formData.images.length}/15
+                </span>
+              </label>
+
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                className={cn(
+                  "border-2 border-dashed rounded-2xl p-6 transition-all text-center",
+                  dragOver
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
+                )}
+              >
+                {formData.images.length === 0 ? (
+                  <>
+                    <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+                    <p className="font-medium mb-1">Kéo thả ảnh vào đây</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      hoặc click để chọn file
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Chọn ảnh
+                    </Button>
+                  </>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                    {formData.images.map((img, i) => (
+                      <div
+                        key={i}
+                        className="relative aspect-square rounded-xl overflow-hidden group"
+                      >
+                        <Image
+                          src={img}
+                          alt={`Image ${i + 1}`}
+                          fill
+                          className="object-cover"
+                        />
+                        <button
+                          onClick={() => removeImage(i)}
+                          className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3 text-white" />
+                        </button>
+                        {i === 0 && (
+                          <div className="absolute bottom-1 left-1 px-2 py-0.5 rounded bg-primary text-[10px] font-bold text-primary-foreground">
+                            Ảnh bìa
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {formData.images.length < 15 && (
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex items-center justify-center transition-colors"
+                      >
+                        <Plus className="w-6 h-6 text-muted-foreground" />
+                      </button>
+                    )}
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                💡 Tip: Ảnh đầu tiên sẽ làm ảnh bìa. Chụp rõ rank, tướng, skin
+                để acc dễ bán hơn!
+              </p>
+            </div>
+
+            {/* Title */}
+            <div className="space-y-2">
+              <label className="font-semibold">
+                Tiêu đề <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.title}
+                onChange={(e) =>
+                  setFormData({ ...formData, title: e.target.value })
+                }
+                placeholder="VD: Acc LMHT Thách Đấu 500LP - Full skin hiếm"
+                className="w-full px-4 py-3 rounded-xl bg-muted/50 border border-border focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              />
+              <p className="text-xs text-muted-foreground">
+                Tiêu đề hấp dẫn giúp acc được nhiều người xem hơn
+              </p>
+            </div>
+
+            {/* Price */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="font-semibold">
+                  Giá bán <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.price}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, "");
+                      setFormData({ ...formData, price: value });
+                    }}
+                    placeholder="0"
+                    className="w-full px-4 py-3 pr-12 rounded-xl bg-muted/50 border border-border focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    đ
+                  </span>
+                </div>
+                {formData.price && (
+                  <p className="text-sm text-primary font-medium">
+                    {parseInt(formData.price).toLocaleString("vi-VN")}đ
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <label className="font-semibold text-muted-foreground">
+                  Giá gốc (nếu có)
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.originalPrice}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, "");
+                      setFormData({ ...formData, originalPrice: value });
+                    }}
+                    placeholder="0"
+                    className="w-full px-4 py-3 pr-12 rounded-xl bg-muted/50 border border-border focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    đ
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <label className="font-semibold">Mô tả chi tiết</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                placeholder="Mô tả thêm về acc: thông tin rank, tướng, skin, lịch sử tài khoản..."
+                rows={4}
+                className="w-full px-4 py-3 rounded-xl bg-muted/50 border border-border focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+              />
+            </div>
+
+            {/* Game Attributes - inline in step 2 */}
+            {selectedGame && selectedGame.fields.length > 0 ? (
+              <div className="glass-card rounded-2xl p-6 space-y-4">
+                <h3 className="font-bold flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                  Thông tin {selectedGame.name}
+                </h3>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {selectedGame.fields.map((field) => (
+                    <div key={field.key} className="space-y-2">
+                      <label className="font-medium text-sm flex items-center gap-2">
+                        {field.label}
+                        {field.required && (
+                          <span className="text-red-500">*</span>
+                        )}
+                      </label>
+
+                      {field.type === "select" ? (
+                        <select
+                          value={formData.attributes[field.key] || ""}
+                          onChange={(e) => {
+                            const newAttrs = {
+                              ...formData.attributes,
+                              [field.key]: e.target.value,
+                            };
+                            setFormData((prev) => ({
+                              ...prev,
+                              attributes: newAttrs,
+                            }));
+                          }}
+                          className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:outline-none transition-all"
+                        >
+                          <option value="">
+                            Chọn {field.label.toLowerCase()}
+                          </option>
+                          {field.options?.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={field.type === "number" ? "number" : "text"}
+                          value={formData.attributes[field.key] || ""}
+                          onChange={(e) => {
+                            const newAttrs = {
+                              ...formData.attributes,
+                              [field.key]: e.target.value,
+                            };
+                            setFormData((prev) => ({
+                              ...prev,
+                              attributes: newAttrs,
+                            }));
+                          }}
+                          placeholder={`Nhập ${field.label.toLowerCase()}`}
+                          className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">
+                Không tìm thấy thông tin game (gameId: {formData.gameId})
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <Button
+              onClick={handleSubmit}
+              disabled={!canSubmit || isSubmitting}
+              className="w-full h-14 text-base gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Đang đăng...
+                </>
+              ) : (
+                <>
+                  <Check className="w-5 h-5" />
+                  Đăng acc ngay
+                </>
+              )}
+            </Button>
+
+            <p className="text-xs text-center text-muted-foreground">
+              <Info className="w-3 h-3 inline mr-1" />
+              Acc sẽ được Admin duyệt trong vòng 30 phút
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
