@@ -4,12 +4,13 @@ import { prisma } from "@/lib/db/prisma";
 import PostDetailClient from "./client";
 
 interface Props {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
   const post = await prisma.post.findUnique({
-    where: { slug: params.slug, status: "PUBLISHED" },
+    where: { slug, status: "PUBLISHED" },
     select: {
       title: true,
       excerpt: true,
@@ -59,6 +60,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default function PostDetailPage({ params }: Props) {
-  return <PostDetailClient slug={params.slug} />;
+export default async function PostDetailPage({ params }: Props) {
+  const { slug } = await params;
+  return <PostDetailClient slug={slug} />;
 }
