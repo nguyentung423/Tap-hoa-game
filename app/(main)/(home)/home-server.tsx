@@ -50,7 +50,7 @@ export async function HomeServer() {
         { totalSales: "desc" },
         { createdAt: "desc" },
       ],
-      take: 50, // Limit to 50 shops for performance
+      take: 20, // Limit to 20 shops for better performance
     }),
 
     // Fetch games

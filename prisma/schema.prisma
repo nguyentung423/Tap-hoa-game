@@ -165,6 +165,7 @@ model Acc {
   @@index([isVip, createdAt])
   @@index([status, gameId])
   @@index([status, sellerId])
+  @@index([status, createdAt(sort: Desc)])
   @@map("accs")
 }
 

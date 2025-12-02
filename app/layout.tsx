@@ -9,12 +9,16 @@ import { Toaster } from "@/components/ui/sonner";
 const inter = Inter({
   subsets: ["vietnamese", "latin"],
   variable: "--font-inter",
+  display: "swap",
+  preload: true,
 });
 
 const orbitron = Orbitron({
   subsets: ["latin"],
   variable: "--font-orbitron",
   weight: ["400", "500", "600", "700", "800", "900"],
+  display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
