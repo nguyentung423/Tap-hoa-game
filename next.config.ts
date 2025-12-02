@@ -22,6 +22,9 @@ const nextConfig: NextConfig = {
         hostname: "**",
       },
     ],
+    formats: ["image/webp"], // WebP for better compression
+    deviceSizes: [640, 750, 828, 1080, 1200], // Mobile-first sizes
+    imageSizes: [16, 32, 48, 64, 96], // Icon sizes
   },
   experimental: {
     optimizePackageImports: ["lucide-react"],

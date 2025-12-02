@@ -159,22 +159,22 @@ export function HomeClient({
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="container py-12 md:py-20">
+        <div className="container py-8 md:py-12 lg:py-20">
           <div className="max-w-3xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4 md:mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
               <Sparkles className="w-4 h-4" />
               <span>Nơi hội tụ các shop game uy tín</span>
             </div>
 
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold mb-4 md:mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
               <span className="text-primary">{siteConfig.name}</span>
               <br />
               Chợ Acc Game Uy Tín
             </h1>
 
-            <p className="text-lg text-muted-foreground mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
+            <p className="text-base md:text-lg text-muted-foreground mb-6 md:mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
               Khám phá các shop game uy tín, chọn acc ưng ý.
-              <br />
+              <br className="hidden sm:inline" />
               Giao dịch an toàn qua trung gian Zalo.
             </p>
 
@@ -197,8 +197,8 @@ export function HomeClient({
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="container pb-12">
+        {/* Stats - hidden on mobile for performance */}
+        <div className="container pb-8 md:pb-12 hidden sm:block">
           <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
             <div className="text-center p-4 rounded-2xl bg-muted/30 border border-border/50">
               <div className="text-2xl md:text-3xl font-bold text-primary">
@@ -222,9 +222,9 @@ export function HomeClient({
         </div>
       </section>
 
-      {/* Features */}
-      <section className="container py-12">
-        <div className="grid md:grid-cols-3 gap-6">
+      {/* Features - reduced padding on mobile */}
+      <section className="container py-8 md:py-12">
+        <div className="grid md:grid-cols-3 gap-4 md:gap-6">
           <FeatureCard
             icon={Shield}
             title="Giao dịch an toàn"

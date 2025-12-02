@@ -3,7 +3,6 @@
 import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import {
   ShoppingBag,
   Package,
@@ -29,6 +28,7 @@ import { getAdminZaloLink } from "@/config/site";
 
 interface ShopDetailClientProps {
   shop: Shop;
+  initialAccs?: any[]; // Server-fetched accs for instant display
 }
 
 interface Review {
@@ -39,19 +39,51 @@ interface Review {
   createdAt: string;
 }
 
-export function ShopDetailClient({ shop }: ShopDetailClientProps) {
+export function ShopDetailClient({ shop, initialAccs = [] }: ShopDetailClientProps) {
   const [selectedGame, setSelectedGame] = useState<string | undefined>();
   const [sortBy, setSortBy] = useState<"newest" | "price-asc" | "price-desc">(
     "newest"
   );
   const [allAccs, setAllAccs] = useState<Acc[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(initialAccs.length === 0); // Don't show loading if we have initial data
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
   const [displayCount, setDisplayCount] = useState(6);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Initialize with server-fetched accs for instant display
+  useEffect(() => {
+    if (initialAccs.length > 0) {
+      const transformedAccs: Acc[] = initialAccs.map((acc: any) => ({
+        id: acc.id,
+        title: acc.title,
+        slug: acc.slug,
+        description: acc.description,
+        price: acc.price,
+        originalPrice: acc.originalPrice,
+        thumbnail: acc.thumbnail,
+        images: acc.images || [],
+        gameSlug: acc.game?.slug || "",
+        gameName: acc.game?.name || "",
+        gameIcon: acc.game?.icon || "",
+        sellerId: shop.ownerId,
+        sellerName: shop.name,
+        sellerSlug: shop.slug,
+        sellerAvatar: shop.avatar,
+        isVerified: shop.isVerified,
+        attributes: {},
+        status: "approved",
+        isVip: acc.isVip,
+        isHot: acc.isHot,
+        views: acc.views,
+        createdAt: acc.createdAt,
+      }));
+      setAllAccs(transformedAccs);
+      setHasMore(transformedAccs.length >= 20);
+    }
+  }, [initialAccs, shop]);
 
   // Fetch shop's accs from API with pagination
   const fetchAccs = async (pageNum: number = 1, append: boolean = false) => {

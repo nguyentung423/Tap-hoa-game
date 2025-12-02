@@ -4,8 +4,8 @@ import { prisma } from "@/lib/db/prisma";
 import { siteConfig } from "@/config/site";
 import { ShopDetailClient } from "./client";
 
-// Disable cache - always fetch fresh data
-export const dynamic = "force-dynamic";
+// Enable ISR - revalidate every 60 seconds for better performance
+export const revalidate = 60;
 
 interface ShopPageProps {
   params: Promise<{ slug: string }>;
@@ -74,7 +74,41 @@ export async function generateMetadata({
 
 export default async function ShopPage({ params }: ShopPageProps) {
   const { slug } = await params;
-  const shop = await getShop(slug);
+  
+  // Fetch shop and initial accs in parallel on server
+  const [shop, initialAccs] = await Promise.all([
+    getShop(slug),
+    prisma.acc.findMany({
+      where: {
+        seller: { shopSlug: slug },
+        status: "APPROVED",
+      },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        description: true,
+        price: true,
+        originalPrice: true,
+        thumbnail: true,
+        images: true,
+        isVip: true,
+        isHot: true,
+        views: true,
+        createdAt: true,
+        game: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            icon: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
+  ]);
 
   if (!shop) {
     notFound();
@@ -105,5 +139,11 @@ export default async function ShopPage({ params }: ShopPageProps) {
     lastActiveAt: now,
   };
 
-  return <ShopDetailClient shop={shopData} />;
+  // Transform accs
+  const serializedAccs = initialAccs.map((acc) => ({
+    ...acc,
+    createdAt: acc.createdAt.toISOString(),
+  }));
+
+  return <ShopDetailClient shop={shopData} initialAccs={serializedAccs} />;
 }
