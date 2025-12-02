@@ -261,8 +261,13 @@ export function HomeClient({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {strategicPartnerShops.map((shop: any) => (
-              <ShopCard key={shop.id} shop={shop} variant="strategic" />
+            {strategicPartnerShops.map((shop: any, index: number) => (
+              <ShopCard
+                key={shop.id}
+                shop={shop}
+                variant="strategic"
+                priority={index < 4}
+              />
             ))}
           </div>
         </section>
@@ -287,7 +292,7 @@ export function HomeClient({
         {topShops.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {topShops.map((shop: any) => (
-              <ShopCard key={shop.id} shop={shop} />
+              <ShopCard key={shop.id} shop={shop} priority={false} />
             ))}
           </div>
         ) : (
@@ -326,7 +331,12 @@ export function HomeClient({
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredDevelopingShops.map((shop: any) => (
-              <ShopCard key={shop.id} shop={shop} variant="developing" />
+              <ShopCard
+                key={shop.id}
+                shop={shop}
+                variant="developing"
+                priority={false}
+              />
             ))}
           </div>
 

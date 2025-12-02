@@ -100,6 +100,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" suppressHydrationWarning>
+      <head>
+        {/* Preconnect to critical origins */}
+        <link rel="preconnect" href="https://res.cloudinary.com" />
+        <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+      </head>
       <body
         className={`${inter.variable} ${orbitron.variable} font-sans antialiased`}
         suppressHydrationWarning

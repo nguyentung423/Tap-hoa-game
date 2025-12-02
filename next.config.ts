@@ -26,6 +26,12 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
+  // Modern browsers only - remove legacy polyfills
+  compiler: {
+    removeConsole: process.env.NODE_ENV === "production",
+  },
+  // Enable SWC minification for better performance
+  swcMinify: true,
 };
 
 export default nextConfig;

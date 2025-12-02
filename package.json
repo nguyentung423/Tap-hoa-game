@@ -70,6 +70,10 @@
     "zod": "^3.23.8",
     "zustand": "^5.0.1"
   },
+  "browserslist": [
+    "defaults and supports es6-module",
+    "maintained node versions"
+  ],
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.10.1",

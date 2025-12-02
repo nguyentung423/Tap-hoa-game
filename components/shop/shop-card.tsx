@@ -16,12 +16,14 @@ interface ShopCardProps {
   shop: Shop;
   className?: string;
   variant?: "default" | "strategic" | "developing"; // Size variant
+  priority?: boolean; // Image loading priority
 }
 
 export function ShopCard({
   shop,
   className,
   variant = "default",
+  priority = false,
 }: ShopCardProps) {
   const formatNumber = (num: number) => {
     if (num >= 1000) {
@@ -79,9 +81,9 @@ export function ShopCard({
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover opacity-60 group-hover:opacity-80 transition-opacity"
-            priority
-            loading="eager"
-            quality={90}
+            priority={priority}
+            loading={priority ? "eager" : "lazy"}
+            quality={85}
           />
         )}
         {/* Animated Shine Effect */}
@@ -142,9 +144,9 @@ export function ShopCard({
                 fill
                 sizes="64px"
                 className="object-cover"
-                priority
-                loading="eager"
-                quality={90}
+                priority={priority}
+                loading={priority ? "eager" : "lazy"}
+                quality={85}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary font-bold text-xl">
