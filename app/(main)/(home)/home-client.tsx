@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import {
   Sparkles,
   ChevronRight,
@@ -74,7 +73,7 @@ function GameChips({
   );
 }
 
-// Feature card
+// Feature card - removed framer-motion for better performance
 function FeatureCard({
   icon: Icon,
   title,
@@ -85,16 +84,13 @@ function FeatureCard({
   desc: string;
 }) {
   return (
-    <motion.div
-      whileHover={{ y: -4 }}
-      className="p-6 rounded-2xl bg-muted/30 border border-border/50"
-    >
+    <div className="p-6 rounded-2xl bg-muted/30 border border-border/50 transition-transform hover:-translate-y-1">
       <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
         <Icon className="w-6 h-6 text-primary" />
       </div>
       <h3 className="font-semibold mb-2">{title}</h3>
       <p className="text-sm text-muted-foreground">{desc}</p>
-    </motion.div>
+    </div>
   );
 }
 
@@ -165,43 +161,24 @@ export function HomeClient({
       <section className="relative overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
         <div className="container py-12 md:py-20">
           <div className="max-w-3xl mx-auto text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6"
-            >
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
               <Sparkles className="w-4 h-4" />
               <span>Nơi hội tụ các shop game uy tín</span>
-            </motion.div>
+            </div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6"
-            >
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
               <span className="text-primary">{siteConfig.name}</span>
               <br />
               Chợ Acc Game Uy Tín
-            </motion.h1>
+            </h1>
 
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-lg text-muted-foreground mb-8"
-            >
+            <p className="text-lg text-muted-foreground mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
               Khám phá các shop game uy tín, chọn acc ưng ý.
               <br />
               Giao dịch an toàn qua trung gian Zalo.
-            </motion.p>
+            </p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center"
-            >
+            <div className="flex flex-col sm:flex-row gap-4 justify-center animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
               <Button asChild size="lg" className="text-base">
                 <Link href="#shops">
                   <Store className="w-5 h-5 mr-2" />
@@ -211,17 +188,12 @@ export function HomeClient({
               <Button asChild variant="outline" size="lg" className="text-base">
                 <Link href="/seller">Mở Shop của bạn</Link>
               </Button>
-            </motion.div>
+            </div>
 
             {/* Safety Policy Button */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="flex justify-center mt-4"
-            >
+            <div className="flex justify-center mt-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-500">
               <SafetyPolicyButton className="text-base" />
-            </motion.div>
+            </div>
           </div>
         </div>
 

@@ -305,27 +305,27 @@
     touch-action: pan-y;
   }
 
-  /* VIP Animations */
+  /* VIP Animations - Optimized for performance */
   @keyframes pulse-border {
     0%,
     100% {
-      border-color: rgba(234, 179, 8, 0.7);
-      box-shadow: 0 0 20px rgba(234, 179, 8, 0.2);
+      opacity: 0.8;
     }
     50% {
-      border-color: rgba(250, 204, 21, 0.9);
-      box-shadow: 0 0 30px rgba(250, 204, 21, 0.4);
+      opacity: 1;
     }
   }
 
+  /* Optimized: Use transform/opacity instead of box-shadow for better performance */
   @keyframes glow {
     0%,
     100% {
-      box-shadow: 0 0 10px rgba(250, 204, 21, 0.5);
+      opacity: 0.8;
+      transform: scale(1);
     }
     50% {
-      box-shadow: 0 0 20px rgba(250, 204, 21, 0.8),
-        0 0 30px rgba(234, 179, 8, 0.4);
+      opacity: 1;
+      transform: scale(1.02);
     }
   }
 
@@ -348,27 +348,27 @@
     }
   }
 
-  /* Strategic Partner Animations - Diamond Theme */
+  /* Optimized: Use opacity instead of box-shadow for border animations */
   @keyframes pulse-border-strategic {
     0%,
     100% {
-      border-color: rgba(34, 211, 238, 0.7);
-      box-shadow: 0 0 25px rgba(34, 211, 238, 0.3);
+      opacity: 0.8;
     }
     50% {
-      border-color: rgba(103, 232, 249, 0.9);
-      box-shadow: 0 0 35px rgba(103, 232, 249, 0.5);
+      opacity: 1;
     }
   }
 
+  /* Optimized: Use opacity instead of box-shadow */
   @keyframes glow-strategic {
     0%,
     100% {
-      box-shadow: 0 0 15px rgba(34, 211, 238, 0.6);
+      opacity: 0.8;
+      transform: scale(1);
     }
     50% {
-      box-shadow: 0 0 25px rgba(34, 211, 238, 0.9),
-        0 0 35px rgba(56, 189, 248, 0.5);
+      opacity: 1;
+      transform: scale(1.02);
     }
   }
 
