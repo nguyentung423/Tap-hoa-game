@@ -28,6 +28,8 @@ export function transformApiAcc(apiAcc: any): Acc {
       slug: apiAcc.seller?.shopSlug || "",
       avatar: apiAcc.seller?.shopAvatar || undefined,
       isVerified: apiAcc.seller?.isVerified || false,
+      isVipShop: apiAcc.seller?.isVipShop || false,
+      isStrategicPartner: apiAcc.seller?.isStrategicPartner || false,
       rating: apiAcc.seller?.rating || 0,
       totalSales: apiAcc.seller?.totalSales || 0,
     },
