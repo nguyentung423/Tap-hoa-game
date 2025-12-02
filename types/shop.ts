@@ -18,6 +18,8 @@ export interface Shop {
   // Status
   status: ShopStatus;
   isVerified: boolean; // status === 'approved'
+  isVipShop: boolean; // VIP shop status
+  isStrategicPartner: boolean; // Strategic Partner status
 
   // Stats
   rating: number;
@@ -47,6 +49,8 @@ export interface ShopInfo {
   rating: number;
   totalSales: number;
   isVerified: boolean;
+  isVipShop: boolean;
+  isStrategicPartner: boolean;
 }
 
 // Shop filters cho trang listing
