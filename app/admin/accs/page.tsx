@@ -180,7 +180,9 @@ export default function AdminAccsPage() {
     ? accs.filter(
         (acc) =>
           acc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          acc.seller?.shopName?.toLowerCase().includes(searchQuery.toLowerCase())
+          acc.seller?.shopName
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase())
       )
     : accs;
 
@@ -202,7 +204,12 @@ export default function AdminAccsPage() {
             Duyệt và quản lý acc (sản phẩm) trên hệ thống
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchAccs} className="gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={fetchAccs}
+          className="gap-2"
+        >
           <RefreshCw className="w-4 h-4" />
           Làm mới
         </Button>
@@ -287,11 +294,14 @@ export default function AdminAccsPage() {
       <div className="space-y-3">
         {filteredAccs.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            {searchQuery || activeTab !== "all" ? "Không tìm thấy acc nào" : "Chưa có acc nào"}
+            {searchQuery || activeTab !== "all"
+              ? "Không tìm thấy acc nào"
+              : "Chưa có acc nào"}
           </div>
         ) : (
           filteredAccs.map((acc) => {
-            const statusConfig = STATUS_CONFIG[acc.status] || STATUS_CONFIG.PENDING;
+            const statusConfig =
+              STATUS_CONFIG[acc.status] || STATUS_CONFIG.PENDING;
             const isProcessing = actionLoading === acc.id;
             const thumbnail = acc.images?.[0] || "/images/placeholder.jpg";
 
@@ -316,6 +326,7 @@ export default function AdminAccsPage() {
                         src={thumbnail}
                         alt={acc.title}
                         fill
+                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                         className="object-cover"
                       />
                       {acc.images && acc.images.length > 1 && (

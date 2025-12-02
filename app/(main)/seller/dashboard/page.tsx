@@ -33,7 +33,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { GAMES } from "@/config/games";
 import { siteConfig } from "@/config/site";
 import { toast } from "sonner";
 
@@ -53,13 +52,19 @@ interface AccData {
   id: string;
   title: string;
   slug: string;
-  images: string[];
+  thumbnail?: string;
+  images?: string[];
   price: number;
   originalPrice?: number;
   status: "PENDING" | "APPROVED" | "REJECTED" | "SOLD";
   views: number;
-  gameId: string;
-  gameName?: string;
+  gameId?: string;
+  game?: {
+    id: string;
+    name: string;
+    slug: string;
+    icon: string;
+  };
   isVip: boolean;
   isHot: boolean;
   createdAt: string;
@@ -67,7 +72,7 @@ interface AccData {
   adminNote?: string;
 }
 
-type AccStatus = "all" | "APPROVED" | "PENDING" | "REJECTED" | "SOLD";
+type AccStatus = "all" | "APPROVED" | "REJECTED" | "SOLD";
 
 const STATUS_CONFIG = {
   APPROVED: {
@@ -76,13 +81,6 @@ const STATUS_CONFIG = {
     color: "text-green-500",
     bg: "bg-green-500/10",
     border: "border-green-500/20",
-  },
-  PENDING: {
-    label: "Chờ duyệt",
-    icon: Clock,
-    color: "text-yellow-500",
-    bg: "bg-yellow-500/10",
-    border: "border-yellow-500/20",
   },
   REJECTED: {
     label: "Bị từ chối",
@@ -112,6 +110,45 @@ export default function SellerDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGame, setSelectedGame] = useState<string>("all");
   const [hideVerificationTip, setHideVerificationTip] = useState(false);
+  const [games, setGames] = useState<any[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Refetch dashboard data
+  const refetchData = async () => {
+    try {
+      const dashboardRes = await fetch(
+        "/api/v1/seller/dashboard?" + new Date().getTime(),
+        {
+          cache: "no-store",
+        }
+      );
+      const dashboardJson = await dashboardRes.json();
+
+      if (dashboardJson.success && dashboardJson.data) {
+        const { shop, stats, recentAccs } = dashboardJson.data;
+
+        if (shop) {
+          setShopData({
+            id: shop.id,
+            shopName: shop.name,
+            shopSlug: shop.slug,
+            shopAvatar: shop.avatar,
+            status: shop.status,
+            isVerified: shop.isVerified,
+            rating: shop.rating || 5.0,
+            totalSales: shop.totalSales || 0,
+            totalViews: stats.totalViews || 0,
+          });
+        }
+
+        if (recentAccs) {
+          setAccs(recentAccs);
+        }
+      }
+    } catch (error) {
+      console.error("Error refetching data:", error);
+    }
+  };
 
   // Check auth and redirect if needed
   useEffect(() => {
@@ -129,6 +166,52 @@ export default function SellerDashboardPage() {
     }
   }, [session, status, router]);
 
+  // Fetch shop data and check status
+  useEffect(() => {
+    if (status !== "authenticated" || !session?.user?.shopName) return;
+
+    const checkShopStatus = async () => {
+      try {
+        const res = await fetch("/api/v1/seller/shop");
+        const json = await res.json();
+
+        if (json.success && json.data) {
+          const { status: shopStatus } = json.data;
+
+          // If not approved, redirect to pending page
+          if (shopStatus !== "APPROVED") {
+            router.replace("/seller/pending");
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Error checking shop status:", error);
+      }
+    };
+
+    checkShopStatus();
+  }, [session, status, router]);
+
+  // Fetch games
+  useEffect(() => {
+    const fetchGames = async () => {
+      try {
+        const res = await fetch("/api/v1/games");
+        if (res.ok) {
+          const data = await res.json();
+          // Only get active games
+          const activeGames = (data.data || data || []).filter(
+            (g: any) => g.isActive
+          );
+          setGames(activeGames);
+        }
+      } catch (error) {
+        console.error("Error fetching games:", error);
+      }
+    };
+    fetchGames();
+  }, []);
+
   // Load shop and accs data
   useEffect(() => {
     // Don't fetch if not authenticated or no shop
@@ -136,30 +219,34 @@ export default function SellerDashboardPage() {
 
     const fetchData = async () => {
       try {
-        // Fetch shop data
-        const shopRes = await fetch("/api/v1/seller/shop");
-        const shopJson = await shopRes.json();
-        if (shopJson.data) {
-          setShopData({
-            id: shopJson.data.id,
-            shopName: shopJson.data.shopName,
-            shopSlug: shopJson.data.shopSlug,
-            shopAvatar: shopJson.data.shopAvatar,
-            status: shopJson.data.status,
-            isVerified: shopJson.data.isVerified,
-            rating: shopJson.data.rating || 5.0,
-            totalSales: shopJson.data.totalSales || 0,
-            totalViews: shopJson.data.totalViews || 0,
-          });
-        }
+        // Only fetch dashboard - it already includes recent accs
+        const dashboardRes = await fetch("/api/v1/seller/dashboard", {
+          cache: "no-store",
+        });
+        const dashboardJson = await dashboardRes.json();
 
-        // Fetch seller's accs
-        const accsRes = await fetch("/api/v1/seller/accs");
-        const accsJson = await accsRes.json();
-        if (accsJson.success && accsJson.data?.accs) {
-          setAccs(accsJson.data.accs);
-        } else if (Array.isArray(accsJson.data)) {
-          setAccs(accsJson.data);
+        // Set shop data from dashboard
+        if (dashboardJson.success && dashboardJson.data) {
+          const { shop, stats, recentAccs } = dashboardJson.data;
+
+          if (shop) {
+            setShopData({
+              id: shop.id,
+              shopName: shop.name,
+              shopSlug: shop.slug,
+              shopAvatar: shop.avatar,
+              status: shop.status,
+              isVerified: shop.isVerified,
+              rating: shop.rating || 5.0,
+              totalSales: shop.totalSales || 0,
+              totalViews: stats.totalViews || 0,
+            });
+          }
+
+          // Use recent accs from dashboard (only 5 latest)
+          if (recentAccs) {
+            setAccs(recentAccs);
+          }
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -168,7 +255,6 @@ export default function SellerDashboardPage() {
         setIsLoading(false);
       }
     };
-
     fetchData();
   }, [session, status]);
 
@@ -188,8 +274,12 @@ export default function SellerDashboardPage() {
   const isShopPending = shopData?.status === "PENDING";
 
   const filteredAccs = accs.filter((acc) => {
+    // Tab "Tất cả" chỉ hiện acc đang bán và bị từ chối (không hiện đã bán)
+    if (activeTab === "all" && acc.status === "SOLD") return false;
+    // Các tab khác thì filter theo status
     if (activeTab !== "all" && acc.status !== activeTab) return false;
-    if (selectedGame !== "all" && acc.gameId !== selectedGame) return false;
+    const accGameId = acc.game?.id || acc.gameId;
+    if (selectedGame !== "all" && accGameId !== selectedGame) return false;
     if (
       searchQuery &&
       !acc.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -197,8 +287,6 @@ export default function SellerDashboardPage() {
       return false;
     return true;
   });
-
-  const pendingCount = accs.filter((a) => a.status === "PENDING").length;
 
   const stats = [
     {
@@ -208,10 +296,10 @@ export default function SellerDashboardPage() {
       color: "from-violet-500 to-purple-500",
     },
     {
-      label: "Chờ duyệt",
-      value: pendingCount,
-      icon: Clock,
-      color: "from-yellow-500 to-orange-500",
+      label: "Đang bán",
+      value: accs.filter((a) => a.status === "APPROVED").length,
+      icon: CheckCircle,
+      color: "from-green-500 to-emerald-500",
     },
     {
       label: "Lượt xem",
@@ -226,7 +314,7 @@ export default function SellerDashboardPage() {
       label: "Đã bán",
       value: isShopPending ? "—" : shopData?.totalSales || 0,
       icon: TrendingUp,
-      color: "from-green-500 to-emerald-500",
+      color: "from-amber-500 to-orange-500",
       locked: isShopPending,
     },
   ];
@@ -284,13 +372,14 @@ export default function SellerDashboardPage() {
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center overflow-hidden">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center overflow-hidden border-2 border-border">
                   {shopData?.shopAvatar ? (
                     <Image
                       src={shopData.shopAvatar}
                       alt={shopData.shopName || "Shop"}
                       fill
-                      className="object-cover"
+                      sizes="48px"
+                      className="object-cover rounded-full"
                       unoptimized
                     />
                   ) : (
@@ -386,21 +475,24 @@ export default function SellerDashboardPage() {
         {/* Shop Link */}
         {!isShopPending && shopData?.shopSlug && (
           <div className="glass-card rounded-2xl p-4 mb-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <ExternalLink className="w-5 h-5 text-primary" />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-sm text-muted-foreground">
                     Link shop của bạn
                   </p>
-                  <p className="font-medium text-primary">
+                  <p className="font-medium text-primary truncate">
                     {siteConfig.url}/shop/{shopData.shopSlug}
                   </p>
                 </div>
               </div>
-              <Link href={`/shop/${shopData.shopSlug}`}>
+              <Link
+                href={`/shop/${shopData.shopSlug}`}
+                className="flex-shrink-0"
+              >
                 <Button variant="outline" size="sm">
                   Xem shop
                 </Button>
@@ -456,32 +548,45 @@ export default function SellerDashboardPage() {
             >
               Tất cả ({accs.length})
             </button>
-            {(["APPROVED", "PENDING", "REJECTED", "SOLD"] as const).map(
-              (status) => {
-                const count = accs.filter((a) => a.status === status).length;
-                const config = STATUS_CONFIG[status];
-                return (
-                  <button
-                    key={status}
-                    onClick={() => setActiveTab(status)}
-                    className={cn(
-                      "px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all flex items-center gap-2",
-                      activeTab === status
-                        ? cn(config.bg, config.color, "border", config.border)
-                        : "bg-muted hover:bg-muted/80"
-                    )}
-                  >
-                    <config.icon className="w-4 h-4" />
-                    {config.label} ({count})
-                  </button>
-                );
-              }
-            )}
+            {(["APPROVED", "REJECTED", "SOLD"] as const).map((status) => {
+              const count = accs.filter((a) => a.status === status).length;
+              const config = STATUS_CONFIG[status];
+              return (
+                <button
+                  key={status}
+                  onClick={() => setActiveTab(status)}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all flex items-center gap-2",
+                    activeTab === status
+                      ? cn(config.bg, config.color, "border", config.border)
+                      : "bg-muted hover:bg-muted/80"
+                  )}
+                >
+                  <config.icon className="w-4 h-4" />
+                  {config.label} ({count})
+                </button>
+              );
+            })}
           </div>
 
-          {/* Search */}
-          <div className="flex gap-2 sm:ml-auto">
-            <div className="relative flex-1 sm:w-64">
+          {/* Search & Game Filter */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:ml-auto w-full sm:w-auto">
+            {/* Game Filter */}
+            <select
+              value={selectedGame}
+              onChange={(e) => setSelectedGame(e.target.value)}
+              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-muted/50 border border-border focus:border-primary transition-colors text-sm"
+            >
+              <option value="all">Tất cả game</option>
+              {games.map((game) => (
+                <option key={game.id} value={game.id}>
+                  {game.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Search */}
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
@@ -512,7 +617,7 @@ export default function SellerDashboardPage() {
         ) : (
           <div className="space-y-4">
             {filteredAccs.map((acc) => (
-              <AccCard key={acc.id} acc={acc} />
+              <AccCard key={acc.id} acc={acc} onUpdate={refetchData} />
             ))}
           </div>
         )}
@@ -523,13 +628,18 @@ export default function SellerDashboardPage() {
 
 interface AccCardProps {
   acc: AccData;
+  onUpdate?: () => void;
 }
 
-function AccCard({ acc }: AccCardProps) {
+function AccCard({ acc, onUpdate }: AccCardProps) {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
-  const statusConfig = STATUS_CONFIG[acc.status];
-  const thumbnail = acc.images?.[0] || "/images/placeholder.jpg";
+  const statusConfig =
+    STATUS_CONFIG[acc.status as keyof typeof STATUS_CONFIG] ||
+    STATUS_CONFIG.APPROVED;
+  const thumbnail =
+    acc.thumbnail || acc.images?.[0] || "/images/placeholder.jpg";
+  const gameName = acc.game?.name || "Unknown Game";
 
   const handleCardClick = () => {
     router.push(`/seller/acc/${acc.id}`);
@@ -547,6 +657,7 @@ function AccCard({ acc }: AccCardProps) {
             src={thumbnail}
             alt={acc.title}
             fill
+            sizes="(max-width: 640px) 96px, 128px"
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             unoptimized
           />
@@ -572,9 +683,7 @@ function AccCard({ acc }: AccCardProps) {
               <h3 className="font-semibold line-clamp-2 group-hover:text-primary transition-colors">
                 {acc.title}
               </h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                {acc.gameName || acc.gameId}
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">{gameName}</p>
             </div>
 
             {/* Status Badge */}
@@ -623,55 +732,126 @@ function AccCard({ acc }: AccCardProps) {
           )}
 
           {/* Actions */}
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-3 flex items-center gap-1.5 flex-wrap">
             {acc.status === "APPROVED" && (
               <>
                 <Button
                   size="sm"
                   variant="outline"
-                  className="gap-1.5 h-8 text-xs"
+                  className="gap-1 h-8 text-xs px-2.5"
                   onClick={(e) => {
                     e.stopPropagation();
+                    e.preventDefault();
                     router.push(`/seller/edit/${acc.id}`);
                   }}
                 >
                   <Edit className="w-3.5 h-3.5" />
-                  Sửa
+                  <span>Sửa</span>
                 </Button>
-              </>
-            )}
-            {acc.status === "PENDING" && (
-              <>
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="gap-1 h-8 text-xs px-2.5 bg-green-600 hover:bg-green-700"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if (!confirm("Bạn chắc chắn acc này đã bán?")) return;
+                    try {
+                      const res = await fetch(
+                        `/api/v1/seller/accs/${acc.id}/mark-sold`,
+                        {
+                          method: "POST",
+                        }
+                      );
+
+                      if (!res.ok) {
+                        const error = await res.json().catch(() => ({
+                          message: "Không thể đánh dấu đã bán!",
+                        }));
+                        toast.error(
+                          error.message || "Không thể đánh dấu đã bán!"
+                        );
+                        return;
+                      }
+
+                      toast.success("Đã đánh dấu acc đã bán!");
+                      onUpdate?.();
+                    } catch (error) {
+                      console.error("Mark sold error:", error);
+                      toast.error("Có lỗi xảy ra!");
+                    }
+                  }}
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>Đã bán</span>
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"
+                  className="gap-1 h-8 text-xs px-2.5 text-red-500 border-red-500/20 hover:bg-red-500/10"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if (!confirm("Bạn chắc chắn muốn xóa acc này?")) return;
+                    try {
+                      const res = await fetch(`/api/v1/seller/accs/${acc.id}`, {
+                        method: "DELETE",
+                      });
+                      if (res.ok) {
+                        toast.success("Đã xóa acc!");
+                        onUpdate?.();
+                      } else {
+                        toast.error("Không thể xóa acc!");
+                      }
+                    } catch (error) {
+                      toast.error("Có lỗi xảy ra!");
+                    }
+                  }}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </>
+            )}
+            {acc.status === "REJECTED" && (
+              <>
+                <Button
+                  size="sm"
                   className="gap-1.5 h-8 text-xs"
                   onClick={(e) => {
                     e.stopPropagation();
+                    e.preventDefault();
                     router.push(`/seller/edit/${acc.id}`);
                   }}
                 >
                   <Edit className="w-3.5 h-3.5" />
-                  Sửa
+                  Sửa & gửi lại
                 </Button>
-                <span className="text-xs text-muted-foreground flex items-center gap-1 ml-1">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Đang chờ duyệt...</span>
-                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 h-8 text-xs text-red-500 border-red-500/20 hover:bg-red-500/10"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if (!confirm("Bạn chắc chắn muốn xóa acc này?")) return;
+                    try {
+                      const res = await fetch(`/api/v1/seller/accs/${acc.id}`, {
+                        method: "DELETE",
+                      });
+                      if (res.ok) {
+                        toast.success("Đã xóa acc!");
+                        onUpdate?.();
+                      } else {
+                        toast.error("Không thể xóa acc!");
+                      }
+                    } catch (error) {
+                      toast.error("Có lỗi xảy ra!");
+                    }
+                  }}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
               </>
-            )}
-            {acc.status === "REJECTED" && (
-              <Button
-                size="sm"
-                className="gap-1.5 h-8 text-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  router.push(`/seller/edit/${acc.id}`);
-                }}
-              >
-                <Edit className="w-3.5 h-3.5" />
-                Sửa & gửi lại
-              </Button>
             )}
             {acc.status === "SOLD" && acc.soldAt && (
               <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -679,56 +859,6 @@ function AccCard({ acc }: AccCardProps) {
                 Đã bán {new Date(acc.soldAt).toLocaleDateString("vi-VN")}
               </span>
             )}
-
-            <div className="ml-auto relative">
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowMenu(!showMenu);
-                }}
-                className="p-2 rounded-lg hover:bg-muted transition-colors"
-              >
-                <MoreVertical className="w-4 h-4" />
-              </button>
-
-              {showMenu && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setShowMenu(false);
-                    }}
-                  />
-                  <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-xl bg-card border border-border shadow-xl overflow-hidden">
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setShowMenu(false);
-                      }}
-                      className="w-full px-4 py-2.5 text-sm text-left hover:bg-muted flex items-center gap-2"
-                    >
-                      <Copy className="w-4 h-4" />
-                      Nhân bản
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setShowMenu(false);
-                      }}
-                      className="w-full px-4 py-2.5 text-sm text-left hover:bg-muted flex items-center gap-2 text-red-500"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Xóa acc
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
           </div>
         </div>
       </div>

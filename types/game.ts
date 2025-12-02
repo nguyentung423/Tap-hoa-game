@@ -7,6 +7,7 @@ export type GameSlug =
   | "free-fire"
   | "dau-truong-chan-ly"
   | "honkai-star-rail"
+  | "lien-minh-toc-chien"
   | "toc-chien"
   | "fifa-online"
   | "khac";
@@ -65,7 +66,7 @@ export const GAMES: Game[] = [
     id: "1",
     name: "Liên Minh Huyền Thoại",
     slug: "lien-minh",
-    icon: "🎮",
+    icon: "🛡️",
     color: "#c4a04b",
     isActive: false,
     fields: [
@@ -158,7 +159,7 @@ export const GAMES: Game[] = [
     id: "4",
     name: "PUBG Mobile",
     slug: "pubg-mobile",
-    icon: "🔫",
+    icon: "🎯",
     color: "#f2a900",
     isActive: false,
     fields: [
@@ -225,6 +226,69 @@ export const GAMES: Game[] = [
     icon: "🎲",
     color: "#00bcd4",
     isActive: false,
+    fields: [
+      {
+        key: "rank",
+        label: "Rank",
+        type: "select",
+        options: [
+          "Sắt",
+          "Đồng",
+          "Bạc",
+          "Vàng",
+          "Bạch Kim",
+          "Kim Cương",
+          "Cao Thủ",
+          "Đại Cao Thủ",
+          "Thách Đấu",
+        ],
+        required: true,
+      },
+      { key: "level", label: "Level", type: "number" },
+      { key: "littleLegends", label: "Số Linh Thú", type: "number" },
+      { key: "arenas", label: "Số Đấu Trường", type: "number" },
+      { key: "booms", label: "Số Boom", type: "number" },
+    ],
+  },
+  {
+    id: "lmtc",
+    name: "Liên Minh Huyền Thoại",
+    slug: "lien-minh-toc-chien",
+    icon: "🛡️",
+    color: "#c4a04b",
+    isActive: true,
+    fields: [
+      {
+        key: "rank",
+        label: "Rank",
+        type: "select",
+        options: [
+          "Sắt",
+          "Đồng",
+          "Bạc",
+          "Vàng",
+          "Bạch Kim",
+          "Kim Cương",
+          "Cao Thủ",
+          "Đại Cao Thủ",
+          "Thách Đấu",
+        ],
+        required: true,
+      },
+      { key: "level", label: "Level", type: "number", required: true },
+      { key: "champions", label: "Số tướng", type: "number", required: true },
+      { key: "skins", label: "Số skin", type: "number", required: true },
+      { key: "blueEssence", label: "Tinh hoa xanh", type: "number" },
+      { key: "rp", label: "RP", type: "number" },
+    ],
+  },
+  {
+    id: "tc",
+    name: "Đấu Trường Chân Lý",
+    slug: "toc-chien",
+    icon: "🎲",
+    color: "#00bcd4",
+    isActive: true,
     fields: [
       {
         key: "rank",

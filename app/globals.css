@@ -181,16 +181,19 @@
 
   /* Floating button */
   .floating-button {
-    @apply fixed z-40 flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all duration-300;
+    @apply fixed z-40 flex items-center justify-center rounded-full shadow-lg transition-all duration-300;
     bottom: calc(5.5rem + env(safe-area-inset-bottom));
     right: 1rem;
+    height: 60px;
+    width: 60px;
   }
 
   @media (min-width: 768px) {
     .floating-button {
       bottom: 2rem;
       right: 2rem;
-      @apply h-14 w-14;
+      height: 70px;
+      width: 70px;
     }
   }
 
@@ -300,5 +303,114 @@
 
   .touch-pan-y {
     touch-action: pan-y;
+  }
+
+  /* VIP Animations */
+  @keyframes pulse-border {
+    0%,
+    100% {
+      border-color: rgba(234, 179, 8, 0.7);
+      box-shadow: 0 0 20px rgba(234, 179, 8, 0.2);
+    }
+    50% {
+      border-color: rgba(250, 204, 21, 0.9);
+      box-shadow: 0 0 30px rgba(250, 204, 21, 0.4);
+    }
+  }
+
+  @keyframes glow {
+    0%,
+    100% {
+      box-shadow: 0 0 10px rgba(250, 204, 21, 0.5);
+    }
+    50% {
+      box-shadow: 0 0 20px rgba(250, 204, 21, 0.8),
+        0 0 30px rgba(234, 179, 8, 0.4);
+    }
+  }
+
+  @keyframes bounce-slow {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-3px);
+    }
+  }
+
+  @keyframes shine {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  /* Strategic Partner Animations - Diamond Theme */
+  @keyframes pulse-border-strategic {
+    0%,
+    100% {
+      border-color: rgba(34, 211, 238, 0.7);
+      box-shadow: 0 0 25px rgba(34, 211, 238, 0.3);
+    }
+    50% {
+      border-color: rgba(103, 232, 249, 0.9);
+      box-shadow: 0 0 35px rgba(103, 232, 249, 0.5);
+    }
+  }
+
+  @keyframes glow-strategic {
+    0%,
+    100% {
+      box-shadow: 0 0 15px rgba(34, 211, 238, 0.6);
+    }
+    50% {
+      box-shadow: 0 0 25px rgba(34, 211, 238, 0.9),
+        0 0 35px rgba(56, 189, 248, 0.5);
+    }
+  }
+
+  @keyframes shine-electric {
+    0% {
+      transform: translateX(-100%);
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 0.7;
+    }
+    100% {
+      transform: translateX(100%);
+      opacity: 0.4;
+    }
+  }
+
+  .animate-pulse-border {
+    animation: pulse-border 2s ease-in-out infinite;
+  }
+
+  .animate-pulse-border-strategic {
+    animation: pulse-border-strategic 2.5s ease-in-out infinite;
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite;
+  }
+
+  .animate-glow-strategic {
+    animation: glow-strategic 2.5s ease-in-out infinite;
+  }
+
+  .animate-bounce-slow {
+    animation: bounce-slow 2s ease-in-out infinite;
+  }
+
+  .animate-shine {
+    animation: shine 3s ease-in-out infinite;
+  }
+
+  .animate-shine-electric {
+    animation: shine-electric 2.5s ease-in-out infinite;
   }
 }

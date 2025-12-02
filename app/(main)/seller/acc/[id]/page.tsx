@@ -99,6 +99,7 @@ export default function SellerAccDetailPage({ params }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [acc, setAcc] = useState<AccDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMarkingSold, setIsMarkingSold] = useState(false);
 
   // Fetch acc data from API
   useEffect(() => {
@@ -108,8 +109,8 @@ export default function SellerAccDetailPage({ params }: Props) {
         if (!response.ok) {
           throw new Error("Failed to fetch acc");
         }
-        const data = await response.json();
-        setAcc(data);
+        const result = await response.json();
+        setAcc(result.data);
       } catch (error) {
         console.error("Error fetching acc:", error);
       } finally {
@@ -142,7 +143,10 @@ export default function SellerAccDetailPage({ params }: Props) {
   }
 
   const gameConfig = GAMES.find((g) => g.id === acc.gameId);
-  const statusConfig = STATUS_CONFIG[acc.status];
+  const statusConfig =
+    acc.status && STATUS_CONFIG[acc.status as keyof typeof STATUS_CONFIG]
+      ? STATUS_CONFIG[acc.status as keyof typeof STATUS_CONFIG]
+      : STATUS_CONFIG.PENDING; // Fallback to PENDING if status is invalid
 
   const discount = acc.originalPrice
     ? Math.round(((acc.originalPrice - acc.price) / acc.originalPrice) * 100)
@@ -165,6 +169,36 @@ export default function SellerAccDetailPage({ params }: Props) {
     } catch (error) {
       console.error("Error deleting acc:", error);
       toast.error("Không thể xóa acc!");
+    }
+  };
+
+  const handleMarkSold = async () => {
+    if (!confirm("Bạn chắc chắn acc này đã bán?")) return;
+
+    setIsMarkingSold(true);
+    try {
+      const response = await fetch(`/api/v1/seller/accs/${id}/mark-sold`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to mark as sold");
+      }
+
+      toast.success("Đã đánh dấu acc đã bán!");
+
+      // Refresh data
+      const accResponse = await fetch(`/api/v1/seller/accs/${id}`);
+      if (accResponse.ok) {
+        const result = await accResponse.json();
+        setAcc(result.data);
+      }
+    } catch (error: any) {
+      console.error("Error marking sold:", error);
+      toast.error(error.message || "Không thể đánh dấu đã bán!");
+    } finally {
+      setIsMarkingSold(false);
     }
   };
 
@@ -218,6 +252,19 @@ export default function SellerAccDetailPage({ params }: Props) {
                       onClick={() => setShowMenu(false)}
                     />
                     <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-xl bg-card border border-border shadow-xl overflow-hidden">
+                      {acc.status === "APPROVED" && (
+                        <button
+                          onClick={() => {
+                            handleMarkSold();
+                            setShowMenu(false);
+                          }}
+                          disabled={isMarkingSold}
+                          className="w-full px-4 py-2.5 text-sm text-left hover:bg-muted flex items-center gap-2 text-green-500 disabled:opacity-50"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          {isMarkingSold ? "Đang xử lý..." : "Đánh dấu đã bán"}
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           handleCopyLink();
@@ -315,9 +362,11 @@ export default function SellerAccDetailPage({ params }: Props) {
 
           {/* Images */}
           <div className="space-y-3">
-            <h2 className="font-semibold">Hình ảnh ({acc.images.length})</h2>
+            <h2 className="font-semibold">
+              Hình ảnh ({acc.images?.length || 0})
+            </h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {acc.images.map((img, i) => (
+              {(acc.images || []).map((img, i) => (
                 <button
                   key={i}
                   onClick={() => setLightboxIndex(i)}
@@ -327,6 +376,7 @@ export default function SellerAccDetailPage({ params }: Props) {
                     src={img}
                     alt={`Image ${i + 1}`}
                     fill
+                    sizes="(max-width: 640px) 50vw, 25vw"
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   {i === 0 && (
@@ -363,6 +413,7 @@ export default function SellerAccDetailPage({ params }: Props) {
                       src={gameConfig.icon}
                       alt={gameConfig.name}
                       fill
+                      sizes="16px"
                       className="object-cover"
                     />
                   </div>
@@ -377,7 +428,7 @@ export default function SellerAccDetailPage({ params }: Props) {
             {/* Price */}
             <div className="flex items-baseline gap-3">
               <span className="text-2xl md:text-3xl font-bold text-primary">
-                {acc.price.toLocaleString("vi-VN")}đ
+                {(acc.price || 0).toLocaleString("vi-VN")}đ
               </span>
               {acc.originalPrice && (
                 <>
@@ -479,7 +530,8 @@ export default function SellerAccDetailPage({ params }: Props) {
           <button
             onClick={() =>
               setLightboxIndex(
-                (lightboxIndex - 1 + acc.images.length) % acc.images.length
+                (lightboxIndex - 1 + (acc.images?.length || 0)) %
+                  (acc.images?.length || 1)
               )
             }
             className="absolute left-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
@@ -489,16 +541,17 @@ export default function SellerAccDetailPage({ params }: Props) {
 
           <div className="relative w-full max-w-4xl aspect-video mx-4">
             <Image
-              src={acc.images[lightboxIndex]}
+              src={acc.images?.[lightboxIndex] || ""}
               alt={`Image ${lightboxIndex + 1}`}
               fill
+              sizes="(max-width: 1024px) 100vw, 896px"
               className="object-contain"
             />
           </div>
 
           <button
             onClick={() =>
-              setLightboxIndex((lightboxIndex + 1) % acc.images.length)
+              setLightboxIndex((lightboxIndex + 1) % (acc.images?.length || 1))
             }
             className="absolute right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
           >
@@ -506,7 +559,7 @@ export default function SellerAccDetailPage({ params }: Props) {
           </button>
 
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-            {acc.images.map((_, i) => (
+            {(acc.images || []).map((_, i) => (
               <button
                 key={i}
                 onClick={() => setLightboxIndex(i)}

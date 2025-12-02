@@ -19,8 +19,8 @@ interface Stats {
   pendingShops: number;
   approvedShops: number;
   totalAccs: number;
-  pendingAccs: number;
   approvedAccs: number;
+  rejectedAccs: number;
   soldAccs: number;
   totalGames: number;
 }
@@ -34,11 +34,12 @@ interface PendingShop {
   createdAt: string;
 }
 
-interface PendingAcc {
+interface RejectedAcc {
   id: string;
   title: string;
   price: number;
   thumbnail: string;
+  adminNote: string | null;
   createdAt: string;
   seller: {
     id: string;
@@ -71,7 +72,7 @@ function formatTime(dateStr: string) {
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [pendingShops, setPendingShops] = useState<PendingShop[]>([]);
-  const [pendingAccs, setPendingAccs] = useState<PendingAcc[]>([]);
+  const [rejectedAccs, setRejectedAccs] = useState<RejectedAcc[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -83,9 +84,9 @@ export default function AdminDashboard() {
       const res = await fetch("/api/v1/admin/stats");
       if (res.ok) {
         const data = await res.json();
-        setStats(data.data.stats);
-        setPendingShops(data.data.recentPendingShops);
-        setPendingAccs(data.data.recentPendingAccs);
+        setStats(data.stats);
+        setPendingShops(data.recentPendingShops || []);
+        setRejectedAccs(data.recentRejectedAccs || []);
       }
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -114,7 +115,7 @@ export default function AdminDashboard() {
     {
       title: "Tổng Accs",
       value: stats?.totalAccs || 0,
-      sub: `${stats?.pendingAccs || 0} chờ duyệt`,
+      sub: `${stats?.rejectedAccs || 0} bị từ chối`,
       icon: ShoppingBag,
       color: "text-green-500",
       bg: "bg-green-500/10",
@@ -216,17 +217,17 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Pending Accs */}
+        {/* Rejected Accs */}
         <div className="rounded-2xl bg-card border border-border overflow-hidden">
           <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-amber-500" />
-              <h2 className="font-semibold">Accs chờ duyệt</h2>
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-xs font-bold">
-                {stats?.pendingAccs || 0}
+              <Clock className="w-5 h-5 text-red-500" />
+              <h2 className="font-semibold">Accs bị từ chối</h2>
+              <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-xs font-bold">
+                {stats?.rejectedAccs || 0}
               </span>
             </div>
-            <Link href="/admin/accs?status=PENDING">
+            <Link href="/admin/accs?status=REJECTED">
               <Button variant="ghost" size="sm" className="gap-1">
                 Xem tất cả
                 <ArrowUpRight className="w-4 h-4" />
@@ -234,13 +235,13 @@ export default function AdminDashboard() {
             </Link>
           </div>
           <div className="divide-y divide-border max-h-[300px] overflow-y-auto">
-            {pendingAccs.length === 0 ? (
+            {rejectedAccs.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
                 <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-500" />
-                <p>Không có acc nào chờ duyệt</p>
+                <p>Không có acc nào bị từ chối</p>
               </div>
             ) : (
-              pendingAccs.map((acc) => (
+              rejectedAccs.map((acc) => (
                 <div
                   key={acc.id}
                   className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
@@ -255,9 +256,13 @@ export default function AdminDashboard() {
                     <p className="text-xs text-muted-foreground">
                       {formatTime(acc.createdAt)}
                     </p>
-                    <Link href={`/admin/accs?status=PENDING`}>
-                      <Button size="sm" className="mt-1 h-7 text-xs">
-                        Duyệt
+                    <Link href={`/admin/accs?status=REJECTED`}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="mt-1 h-7 text-xs"
+                      >
+                        Xem
                       </Button>
                     </Link>
                   </div>

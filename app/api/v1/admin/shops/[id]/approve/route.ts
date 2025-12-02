@@ -30,11 +30,12 @@ export async function POST(request: NextRequest, { params }: Params) {
       return errorResponse("Shop đã được duyệt rồi");
     }
 
-    // Approve shop
+    // Approve shop and give verified badge
     const updatedShop = await prisma.user.update({
       where: { id },
       data: {
         status: "APPROVED",
+        isVerified: true,
         approvedAt: new Date(),
         updatedAt: new Date(),
       },
@@ -44,8 +45,9 @@ export async function POST(request: NextRequest, { params }: Params) {
       id: updatedShop.id,
       shopName: updatedShop.shopName,
       status: updatedShop.status,
+      isVerified: updatedShop.isVerified,
       approvedAt: updatedShop.approvedAt,
-      message: "Đã duyệt shop thành công",
+      message: "Đã duyệt shop thành công và cấp tick xanh",
     });
   } catch (error) {
     console.error("POST /api/v1/admin/shops/[id]/approve error:", error);

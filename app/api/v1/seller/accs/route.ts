@@ -6,11 +6,16 @@ import {
   errorResponse,
 } from "@/lib/api/helpers";
 
+// Cache for 30 seconds - balance between freshness and performance
+export const dynamic = "force-dynamic";
+export const revalidate = 30;
+
 /**
  * GET /api/v1/seller/accs
  * Lấy danh sách acc của seller hiện tại
  */
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -36,25 +41,41 @@ export async function GET(request: NextRequest) {
       where.game = { slug: gameSlug };
     }
 
-    // Get accs with pagination - use sequential queries for PgBouncer compatibility
-    const accs = await prisma.acc.findMany({
-      where,
-      include: {
-        game: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            icon: true,
+    // Parallel queries with minimal select
+    const [accs, total] = await Promise.all([
+      prisma.acc.findMany({
+        where,
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          price: true,
+          originalPrice: true,
+          thumbnail: true,
+          status: true,
+          isVip: true,
+          isHot: true,
+          views: true,
+          createdAt: true,
+          updatedAt: true,
+          approvedAt: true,
+          adminNote: true,
+          gameId: true,
+          game: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              icon: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-
-    const total = await prisma.acc.count({ where });
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.acc.count({ where }),
+    ]);
 
     return successResponse({
       accs,
@@ -68,6 +89,9 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("GET /api/v1/seller/accs error:", error);
     return errorResponse("Có lỗi xảy ra", 500);
+  } finally {
+    const duration = Date.now() - startTime;
+    console.log(`[PERF] GET /api/v1/seller/accs - ${duration}ms`);
   }
 }
 
@@ -145,7 +169,7 @@ export async function POST(request: NextRequest) {
         thumbnail: images[0],
         attributes: attributes || [],
         sellerId: user.id,
-        status: "PENDING", // Luôn chờ duyệt
+        status: "APPROVED", // Auto approved - chỉ duyệt shop
       },
       include: {
         game: {

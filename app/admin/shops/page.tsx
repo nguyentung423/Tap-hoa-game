@@ -16,6 +16,9 @@ import {
   Star,
   Loader2,
   RefreshCw,
+  Crown,
+  Shield,
+  Ban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -33,6 +36,9 @@ interface Shop {
   email: string;
   status: "PENDING" | "APPROVED" | "REJECTED" | "BANNED";
   isVerified: boolean;
+  isVipShop?: boolean;
+  vipShopEndTime?: string | null;
+  commissionRate?: number;
   createdAt: string;
   rejectedReason?: string;
   _count?: {
@@ -73,15 +79,35 @@ export default function AdminShopsPage() {
   const [activeTab, setActiveTab] = useState<ShopStatus>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const limit = 20;
 
   // Fetch shops from API
   const fetchShops = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/v1/admin/shops");
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      });
+
+      if (activeTab !== "all") {
+        params.set("status", activeTab);
+      }
+
+      if (searchQuery.trim()) {
+        params.set("search", searchQuery.trim());
+      }
+
+      const res = await fetch(`/api/v1/admin/shops?${params.toString()}`);
       const json = await res.json();
+
       if (json.data?.shops) {
         setShops(json.data.shops);
+        setTotal(json.data.pagination?.total || 0);
+        setTotalPages(json.data.pagination?.totalPages || 0);
       }
     } catch (error) {
       console.error("Error fetching shops:", error);
@@ -93,7 +119,12 @@ export default function AdminShopsPage() {
 
   useEffect(() => {
     fetchShops();
-  }, []);
+  }, [page, activeTab, searchQuery]);
+
+  // Reset về trang 1 khi đổi filter
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, searchQuery]);
 
   // Approve shop
   const handleApprove = async (shopId: string, shopName: string) => {
@@ -179,24 +210,207 @@ export default function AdminShopsPage() {
     }
   };
 
-  // Filter shops - only show shops with shopName
-  const filteredShops = shops.filter((shop) => {
-    if (!shop.shopName) return false;
+  // Toggle VIP
+  const handleToggleVip = async (
+    shopId: string,
+    shopName: string,
+    currentlyVip: boolean
+  ) => {
+    // Prompt for duration if enabling VIP
+    if (!currentlyVip) {
+      const duration = prompt(
+        `Bật VIP cho shop "${shopName}"\nNhập số ngày (30, 90, 180, 365):`,
+        "90"
+      );
 
-    const matchesStatus = activeTab === "all" || shop.status === activeTab;
-    const matchesSearch =
-      shop.shopName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      shop.email.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
+      if (!duration) return; // User cancelled
 
-  // Count by status
-  const shopsWithName = shops.filter((s) => s.shopName);
+      const durationNum = parseInt(duration);
+      if (![30, 90, 180, 365].includes(durationNum)) {
+        toast.error("Duration phải là 30, 90, 180 hoặc 365 ngày");
+        return;
+      }
+
+      setActionLoading(shopId);
+      try {
+        const res = await fetch(`/api/v1/admin/shops/${shopId}/vip`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isVipShop: true, duration: durationNum }),
+        });
+        const json = await res.json();
+
+        if (res.ok) {
+          toast.success(json.data.message || `Đã bật VIP cho "${shopName}"`);
+          fetchShops();
+        } else {
+          toast.error(json.error || "Không thể cập nhật VIP");
+        }
+      } catch (error) {
+        console.error("Error updating VIP:", error);
+        toast.error("Đã xảy ra lỗi");
+      } finally {
+        setActionLoading(null);
+      }
+    } else {
+      // Disable VIP
+      if (!confirm(`Tắt VIP cho shop "${shopName}"?`)) return;
+
+      setActionLoading(shopId);
+      try {
+        const res = await fetch(`/api/v1/admin/shops/${shopId}/vip`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isVipShop: false }),
+        });
+        const json = await res.json();
+
+        if (res.ok) {
+          toast.success(json.data.message || `Đã tắt VIP cho "${shopName}"`);
+          fetchShops();
+        } else {
+          toast.error(json.error || "Không thể cập nhật VIP");
+        }
+      } catch (error) {
+        console.error("Error updating VIP:", error);
+        toast.error("Đã xảy ra lỗi");
+      } finally {
+        setActionLoading(null);
+      }
+    }
+  };
+
+  // Toggle Strategic Partner
+  const handleToggleStrategic = async (
+    shopId: string,
+    shopName: string,
+    currentlyStrategic: boolean
+  ) => {
+    // Prompt for commission rate if enabling Strategic Partner
+    if (!currentlyStrategic) {
+      const commissionRate = prompt(
+        `Bật Đối tác chiến lược cho shop "${shopName}"\nNhập % hoa hồng (0-5):`,
+        "1.5"
+      );
+
+      if (!commissionRate) return; // User cancelled
+
+      const rate = parseFloat(commissionRate);
+      if (isNaN(rate) || rate < 0 || rate > 5) {
+        toast.error("Commission rate phải từ 0-5%");
+        return;
+      }
+
+      setActionLoading(shopId);
+      try {
+        const res = await fetch(`/api/v1/admin/shops/${shopId}/strategic`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enable: true, commissionRate: rate }),
+        });
+        const json = await res.json();
+
+        if (res.ok) {
+          toast.success(
+            json.data.message || `Đã bật Đối tác chiến lược cho "${shopName}"`
+          );
+          fetchShops();
+        } else {
+          toast.error(json.error || "Không thể cập nhật Strategic Partner");
+        }
+      } catch (error) {
+        console.error("Error updating Strategic Partner:", error);
+        toast.error("Đã xảy ra lỗi");
+      } finally {
+        setActionLoading(null);
+      }
+    } else {
+      // Disable Strategic Partner
+      if (!confirm(`Tắt Đối tác chiến lược cho shop "${shopName}"?`)) return;
+
+      setActionLoading(shopId);
+      try {
+        const res = await fetch(`/api/v1/admin/shops/${shopId}/strategic`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enable: false }),
+        });
+        const json = await res.json();
+
+        if (res.ok) {
+          toast.success(
+            json.data.message || `Đã tắt Đối tác chiến lược cho "${shopName}"`
+          );
+          fetchShops();
+        } else {
+          toast.error(json.error || "Không thể cập nhật Strategic Partner");
+        }
+      } catch (error) {
+        console.error("Error updating Strategic Partner:", error);
+        toast.error("Đã xảy ra lỗi");
+      } finally {
+        setActionLoading(null);
+      }
+    }
+  };
+
+  // Ban shop permanently
+  const handleBanShop = async (
+    shopId: string,
+    shopName: string,
+    email: string
+  ) => {
+    // First confirmation
+    const firstConfirm = confirm(
+      `⚠️ BẠN CHẮC CHẮN MUỐN BAN SHOP "${shopName}"?\n\nEmail: ${email}\n\nHành động này sẽ:\n- Xóa toàn bộ thông tin shop\n- Cấm vĩnh viễn email này tạo shop mới\n- KHÔNG THỂ hoàn tác!\n\nBấm OK để tiếp tục...`
+    );
+    if (!firstConfirm) return;
+
+    // Second confirmation - must type shop name
+    const confirmText = prompt(
+      `⚠️ XÁC NHẬN LẦN 2:\n\nĐể ban vĩnh viễn shop "${shopName}", vui lòng nhập chính xác TÊN SHOP bên dưới:\n\n"${shopName}"\n\n(Nhập đúng để xác nhận)`
+    );
+
+    if (confirmText !== shopName) {
+      if (confirmText !== null) {
+        toast.error("Tên shop không khớp. Hủy thao tác ban.");
+      }
+      return;
+    }
+
+    setActionLoading(shopId);
+    try {
+      const res = await fetch(`/api/v1/admin/shops/${shopId}/ban`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const json = await res.json();
+
+      if (res.ok) {
+        toast.success(
+          `Đã ban vĩnh viễn shop "${shopName}" và email "${email}"`
+        );
+        fetchShops();
+      } else {
+        toast.error(json.error || "Không thể ban shop");
+      }
+    } catch (error) {
+      console.error("Error banning shop:", error);
+      toast.error("Đã xảy ra lỗi");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Shops already filtered by API
+  const filteredShops = shops;
+
+  // Count by status - use total from API
   const counts = {
-    all: shopsWithName.length,
-    PENDING: shopsWithName.filter((s) => s.status === "PENDING").length,
-    APPROVED: shopsWithName.filter((s) => s.status === "APPROVED").length,
-    REJECTED: shopsWithName.filter((s) => s.status === "REJECTED").length,
+    all: total,
+    PENDING: activeTab === "PENDING" ? total : 0,
+    APPROVED: activeTab === "APPROVED" ? total : 0,
+    REJECTED: activeTab === "REJECTED" ? total : 0,
   };
 
   if (isLoading) {
@@ -331,6 +545,21 @@ export default function AdminShopsPage() {
                             {shop.isVerified && (
                               <BadgeCheck className="w-4 h-4 text-blue-500" />
                             )}
+                            {(shop as any).isStrategicPartner && (
+                              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-cyan-400 to-blue-400 text-slate-900 text-xs font-bold">
+                                <Shield className="w-3 h-3" />
+                                CHIẾN LƯỢC
+                              </div>
+                            )}
+                            {shop.isVipShop &&
+                              shop.vipShopEndTime &&
+                              new Date(shop.vipShopEndTime) > new Date() &&
+                              !(shop as any).isStrategicPartner && (
+                                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-600 text-yellow-950 text-xs font-bold">
+                                  <Crown className="w-3 h-3" />
+                                  VIP
+                                </div>
+                              )}
                           </div>
                           <p className="text-sm text-muted-foreground line-clamp-1">
                             {shop.shopDesc || "Chưa có mô tả"}
@@ -430,6 +659,88 @@ export default function AdminShopsPage() {
                           )}
                           {shop.isVerified ? "Gỡ Tick Xanh" : "Cấp Tick Xanh"}
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={cn(
+                            "gap-1.5",
+                            shop.isVipShop &&
+                              shop.vipShopEndTime &&
+                              new Date(shop.vipShopEndTime) > new Date()
+                              ? "text-amber-500 hover:text-amber-500 hover:bg-amber-500/10"
+                              : "text-amber-600 hover:text-amber-600 hover:bg-amber-600/10"
+                          )}
+                          disabled={isProcessing}
+                          onClick={() =>
+                            handleToggleVip(
+                              shop.id,
+                              shop.shopName || "",
+                              !!(
+                                shop.isVipShop &&
+                                shop.vipShopEndTime &&
+                                new Date(shop.vipShopEndTime) > new Date()
+                              )
+                            )
+                          }
+                        >
+                          {isProcessing ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Crown className="w-4 h-4" />
+                          )}
+                          {shop.isVipShop &&
+                          shop.vipShopEndTime &&
+                          new Date(shop.vipShopEndTime) > new Date()
+                            ? "Tắt VIP"
+                            : "Bật VIP"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={cn(
+                            "gap-1.5",
+                            (shop as any).isStrategicPartner
+                              ? "text-cyan-500 hover:text-cyan-500 hover:bg-cyan-500/10"
+                              : "text-cyan-600 hover:text-cyan-600 hover:bg-cyan-600/10"
+                          )}
+                          disabled={isProcessing}
+                          onClick={() =>
+                            handleToggleStrategic(
+                              shop.id,
+                              shop.shopName || "",
+                              !!(shop as any).isStrategicPartner
+                            )
+                          }
+                        >
+                          {isProcessing ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Shield className="w-4 h-4" />
+                          )}
+                          {(shop as any).isStrategicPartner
+                            ? "Tắt Chiến lược"
+                            : "Bật Chiến lược"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="gap-1.5"
+                          disabled={isProcessing}
+                          onClick={() =>
+                            handleBanShop(
+                              shop.id,
+                              shop.shopName || "",
+                              shop.email
+                            )
+                          }
+                        >
+                          {isProcessing ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Ban className="w-4 h-4" />
+                          )}
+                          Ban Shop
+                        </Button>
                         {shop.shopSlug && (
                           <Button
                             size="sm"
@@ -473,6 +784,33 @@ export default function AdminShopsPage() {
           })
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-4 border-t">
+          <p className="text-sm text-muted-foreground">
+            Trang {page} / {totalPages} • Tổng {total} shops
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1 || isLoading}
+            >
+              Trang trước
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages || isLoading}
+            >
+              Trang sau
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

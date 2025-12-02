@@ -53,7 +53,7 @@ export const GAMES: Game[] = [
     id: "lmht",
     name: "Liên Minh Huyền Thoại",
     slug: "lien-minh-huyen-thoai",
-    icon: "🎮",
+    icon: "🛡️",
     banner: "",
     description: "Mua bán acc Liên Minh Huyền Thoại",
     isActive: false,

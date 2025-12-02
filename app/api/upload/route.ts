@@ -25,6 +25,10 @@ export async function POST(request: NextRequest) {
     const result = await cloudinary.uploader.upload(base64, {
       folder: "accvip",
       resource_type: "image",
+      transformation: [
+        { width: 1920, height: 1920, crop: "limit" },
+        { quality: "auto:best", fetch_format: "auto" },
+      ],
     });
 
     return NextResponse.json({

@@ -58,8 +58,11 @@ export function AccCard({ acc, index = 0, priority = false }: AccCardProps) {
               alt={acc.title}
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-110"
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
               priority={priority}
+              quality={100}
+              loading={priority ? "eager" : "lazy"}
+              placeholder="empty"
             />
 
             {/* Overlay gradient */}
@@ -161,6 +164,8 @@ export function AccCard({ acc, index = 0, priority = false }: AccCardProps) {
                         width={20}
                         height={20}
                         className="object-cover"
+                        loading="eager"
+                        quality={90}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary text-[10px] font-medium">

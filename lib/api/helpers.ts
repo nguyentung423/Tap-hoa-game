@@ -8,16 +8,61 @@ import { prisma } from "@/lib/db/prisma";
 const ADMIN_JWT_SECRET =
   process.env.ADMIN_JWT_SECRET || "admin-secret-key-change-in-production";
 
+// In-memory cache for user data (lasts for request lifecycle)
+const userCache = new Map<string, { user: any; timestamp: number }>();
+const CACHE_TTL = 5000; // 5 seconds
+
 /**
- * Get current authenticated user from session
+ * Get current authenticated user from session with caching
  */
 export async function getCurrentUser() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return null;
 
+  const email = session.user.email;
+  const now = Date.now();
+
+  // Check cache
+  const cached = userCache.get(email);
+  if (cached && now - cached.timestamp < CACHE_TTL) {
+    return cached.user;
+  }
+
+  // Query database with minimal fields
   const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
+    where: { email },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      avatar: true,
+      shopName: true,
+      shopSlug: true,
+      shopDesc: true,
+      shopAvatar: true,
+      shopCover: true,
+      role: true,
+      status: true,
+      isVerified: true,
+      rating: true,
+      totalReviews: true,
+      totalSales: true,
+      totalViews: true,
+      createdAt: true,
+      approvedAt: true,
+    },
   });
+
+  // Cache result
+  if (user) {
+    userCache.set(email, { user, timestamp: now });
+
+    // Clean old cache entries (prevent memory leak)
+    if (userCache.size > 100) {
+      const firstKey = userCache.keys().next().value;
+      if (firstKey) userCache.delete(firstKey);
+    }
+  }
 
   return user;
 }

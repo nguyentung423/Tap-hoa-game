@@ -251,13 +251,8 @@ export default function EditAccPage({ params }: Props) {
 
           {/* Selected Game */}
           <div className="glass-card rounded-2xl p-4 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-muted overflow-hidden relative shrink-0">
-              <Image
-                src={selectedGame?.icon || ""}
-                alt={selectedGame?.name || ""}
-                fill
-                className="object-cover"
-              />
+            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl shrink-0">
+              {selectedGame?.icon}
             </div>
             <div className="flex-1">
               <p className="text-sm text-muted-foreground">Game</p>
@@ -299,6 +294,7 @@ export default function EditAccPage({ params }: Props) {
                       src={img}
                       alt={`Image ${i + 1}`}
                       fill
+                      sizes="(max-width: 640px) 33vw, 20vw"
                       className="object-cover"
                     />
                     <button
@@ -354,6 +350,9 @@ export default function EditAccPage({ params }: Props) {
             <div className="space-y-2">
               <label className="font-semibold">
                 Giá bán <span className="text-red-500">*</span>
+                <span className="text-xs text-muted-foreground font-normal ml-2">
+                  (Giá khách hàng sẽ mua)
+                </span>
               </label>
               <div className="relative">
                 <input
@@ -378,6 +377,9 @@ export default function EditAccPage({ params }: Props) {
             <div className="space-y-2">
               <label className="font-semibold text-muted-foreground">
                 Giá gốc
+                <span className="text-xs font-normal ml-2">
+                  (Để so sánh, khách thấy được giảm giá)
+                </span>
               </label>
               <div className="relative">
                 <input
@@ -398,7 +400,12 @@ export default function EditAccPage({ params }: Props) {
 
           {/* Description */}
           <div className="space-y-2">
-            <label className="font-semibold">Mô tả chi tiết</label>
+            <label className="font-semibold">
+              Mô tả chi tiết <span className="text-red-500">*</span>
+              <span className="text-xs text-muted-foreground font-normal ml-2">
+                (Tối thiểu 10 ký tự)
+              </span>
+            </label>
             <textarea
               value={formData.description}
               onChange={(e) =>
@@ -407,36 +414,13 @@ export default function EditAccPage({ params }: Props) {
               rows={4}
               className="w-full px-4 py-3 rounded-xl bg-muted/50 border border-border focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
             />
+            {formData.description && formData.description.length < 10 && (
+              <p className="text-xs text-red-500">
+                Vui lòng nhập ít nhất 10 ký tự ({formData.description.length}
+                /10)
+              </p>
+            )}
           </div>
-
-          {/* Game Fields */}
-          {selectedGame && (
-            <div className="glass-card rounded-2xl p-6 space-y-6">
-              <h2 className="font-bold text-lg flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" />
-                Thông tin {selectedGame.name}
-              </h2>
-
-              <div className="space-y-4">
-                {selectedGame.fields.map((field) => (
-                  <FieldInput
-                    key={field.key}
-                    field={field}
-                    value={formData.attributes[field.key] || ""}
-                    onChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        attributes: {
-                          ...formData.attributes,
-                          [field.key]: value,
-                        },
-                      })
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Delete Section */}
           <div className="glass-card rounded-2xl p-4 border-red-500/20">

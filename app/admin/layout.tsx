@@ -14,6 +14,8 @@ import {
   X,
   ChevronLeft,
   Loader2,
+  Star,
+  Newspaper,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { siteConfig } from "@/config/site";
@@ -34,6 +36,16 @@ const navItems = [
     title: "Accs",
     href: "/admin/accs",
     icon: ShoppingBag,
+  },
+  {
+    title: "Đánh giá",
+    href: "/admin/reviews",
+    icon: Star,
+  },
+  {
+    title: "Bài viết",
+    href: "/admin/posts",
+    icon: Newspaper,
   },
   {
     title: "Games",

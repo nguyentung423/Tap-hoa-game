@@ -127,13 +127,6 @@ export default function AdminLoginPage() {
               {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
             </Button>
           </form>
-
-          {/* Demo credentials */}
-          <div className="mt-6 p-3 rounded-xl bg-muted/50 border border-border">
-            <p className="text-xs text-muted-foreground text-center">
-              <strong>Demo:</strong> admin@accvip.vn / admin123
-            </p>
-          </div>
         </div>
 
         {/* Back to site */}

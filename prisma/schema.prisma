@@ -8,7 +8,6 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 // =====================
@@ -29,6 +28,17 @@ model User {
   shopDesc      String?
   shopAvatar    String?     // Avatar riêng cho shop
   shopCover     String?     // Ảnh bìa shop
+  featuredGames String[]    @default([])  // Các game shop bán (tags hiển thị trên card)
+  
+  // Shop VIP features
+  isVipShop     Boolean     @default(false)  // Shop VIP
+  vipShopEndTime DateTime?                   // Hết hạn VIP
+  commissionRate Float      @default(5.0)    // Phí hoa hồng (VIP: 3%, Normal: 5%)
+  
+  // Strategic Partner features
+  isStrategicPartner Boolean  @default(false)  // Đối tác chiến lược
+  partnerTier        String?                   // 'strategic', 'vip', 'regular'
+  partnerSince       DateTime?                 // Ngày trở thành đối tác
   
   // Role & Status
   role          UserRole    @default(SELLER)
@@ -52,6 +62,11 @@ model User {
   reviews       Review[]    @relation("ReviewTarget")
   
   @@map("users")
+  @@index([email])
+  @@index([shopSlug])
+  @@index([status, role])
+  @@index([isVerified])
+  @@index([isVipShop, rating])
 }
 
 enum UserRole {
@@ -119,7 +134,7 @@ model Acc {
   attributes    Json        @default("[]")
   
   // Status
-  status        AccStatus   @default(PENDING)
+  status        AccStatus   @default(APPROVED)  // Auto approved, chỉ duyệt shop
   
   // Promotion flags
   isVip         Boolean     @default(false)
@@ -146,13 +161,16 @@ model Acc {
   @@index([sellerId])
   @@index([status])
   @@index([price])
+  @@index([createdAt])
+  @@index([isVip, createdAt])
+  @@index([status, gameId])
+  @@index([status, sellerId])
   @@map("accs")
 }
 
 enum AccStatus {
-  PENDING    // Chờ duyệt
-  APPROVED   // Đang bán
-  REJECTED   // Bị từ chối
+  APPROVED   // Đang bán (auto approved khi đăng)
+  REJECTED   // Bị từ chối (admin xóa nếu vi phạm)
   SOLD       // Đã bán
 }
 
@@ -211,6 +229,50 @@ model SiteSettings {
   updatedAt     DateTime @updatedAt
   
   @@map("site_settings")
+}
+
+// =====================
+// BLOG/NEWS POSTS
+// =====================
+model Post {
+  id          String     @id @default(cuid())
+  
+  // Content
+  title       String
+  slug        String     @unique
+  content     String     @db.Text
+  excerpt     String?    // Short description
+  thumbnail   String?    // Featured image
+  
+  // Categorization
+  game        String?    // Related game (Liên Quân, Liên Minh, Free Fire, PUBG, Roblox)
+  tags        String[]   @default([])
+  
+  // Source (for crawled posts)
+  sourceUrl   String?    // Original article URL
+  sourceName  String?    // Source website name
+  
+  // Status & Publishing
+  status      PostStatus @default(DRAFT)
+  publishedAt DateTime?
+  
+  // Stats
+  views       Int        @default(0)
+  
+  // Timestamps
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  @@index([game])
+  @@index([status])
+  @@index([publishedAt])
+  @@map("posts")
+}
+
+enum PostStatus {
+  DRAFT      // Crawled, chờ admin duyệt
+  PUBLISHED  // Đã publish
+  REJECTED   // Admin từ chối
 }
 
 // =====================

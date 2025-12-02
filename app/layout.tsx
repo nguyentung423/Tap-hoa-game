@@ -34,11 +34,11 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Tạp hoá game" }],
   creator: "Tạp hoá game",
-  metadataBase: new URL("https://taphoagame.vn"),
+  metadataBase: new URL("https://taphoagame.online"),
   openGraph: {
     type: "website",
     locale: "vi_VN",
-    url: "https://taphoagame.vn",
+    url: "https://taphoagame.online",
     siteName: "Tạp hoá game",
     title: "Tạp hoá game - Chợ Mua Bán Acc Game Uy Tín",
     description:
@@ -98,6 +98,7 @@ export default function RootLayout({
     <html lang="vi" suppressHydrationWarning>
       <body
         className={`${inter.variable} ${orbitron.variable} font-sans antialiased`}
+        suppressHydrationWarning
       >
         <AuthProvider>
           <ThemeProvider

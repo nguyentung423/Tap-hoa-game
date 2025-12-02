@@ -57,16 +57,28 @@ export async function GET(request: NextRequest, { params }: Params) {
       currentUser = await getCurrentUser();
     } catch {}
 
-    // 2. Check cookie for viewed accs
+    // 2. Check cookie for viewed accs (format: id:timestamp,id:timestamp)
     const cookieStore = await cookies();
     const viewedAccs = cookieStore.get("viewed_accs")?.value || "";
-    const viewedAccIds = viewedAccs.split(",").filter(Boolean);
+    const viewedEntries = viewedAccs.split(",").filter(Boolean);
+    const viewedMap = new Map<string, number>();
+
+    // Parse existing views with timestamps
+    viewedEntries.forEach((entry) => {
+      const [id, timestamp] = entry.split(":");
+      if (id && timestamp) {
+        viewedMap.set(id, parseInt(timestamp));
+      }
+    });
 
     // 3. Only increment if:
     //    - User is not the acc seller
-    //    - Acc hasn't been viewed in this session
+    //    - Acc hasn't been viewed in last 2 hours
     const isSeller = currentUser?.id === acc.sellerId;
-    const alreadyViewed = viewedAccIds.includes(acc.id);
+    const lastViewTime = viewedMap.get(acc.id);
+    const now = Date.now();
+    const twoHoursInMs = 2 * 60 * 60 * 1000; // 2 hours
+    const alreadyViewed = lastViewTime && now - lastViewTime < twoHoursInMs;
 
     let newViews = acc.views;
 
@@ -117,11 +129,21 @@ export async function GET(request: NextRequest, { params }: Params) {
       relatedAccs,
     });
 
-    // Set cookie to track viewed accs (expires in 1 hour)
+    // Set cookie to track viewed accs (expires in 2 hours)
     if (!alreadyViewed && !isSeller) {
-      const newViewedAccs = [...viewedAccIds, acc.id].join(",");
-      response.cookies.set("viewed_accs", newViewedAccs, {
-        maxAge: 60 * 60, // 1 hour
+      // Update view map with current timestamp
+      viewedMap.set(acc.id, now);
+
+      // Clean up old entries (older than 2 hours)
+      const cleanedEntries: string[] = [];
+      viewedMap.forEach((timestamp, id) => {
+        if (now - timestamp < twoHoursInMs) {
+          cleanedEntries.push(`${id}:${timestamp}`);
+        }
+      });
+
+      response.cookies.set("viewed_accs", cleanedEntries.join(","), {
+        maxAge: 2 * 60 * 60, // 2 hours
         httpOnly: true,
         sameSite: "lax",
       });

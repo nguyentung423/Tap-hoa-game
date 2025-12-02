@@ -31,6 +31,9 @@ interface ShopData {
   shopDesc: string | null;
   shopAvatar: string | null;
   shopCover: string | null;
+  isVipShop: boolean;
+  vipShopEndTime: string | null;
+  commissionRate: number;
   isVerified: boolean;
   rating: number;
   totalReviews: number;
@@ -57,7 +60,30 @@ export default function ShopSettingsPage() {
     shopDesc: "",
     shopAvatar: "",
     shopCover: "",
+    featuredGames: [] as string[],
   });
+
+  const [availableGames, setAvailableGames] = useState<string[]>([]);
+
+  // Fetch active games
+  useEffect(() => {
+    const fetchGames = async () => {
+      try {
+        const res = await fetch("/api/v1/games");
+        if (res.ok) {
+          const data = await res.json();
+          // Only get active games and extract names
+          const activeGames = (data.data || data || [])
+            .filter((g: any) => g.isActive)
+            .map((g: any) => g.name);
+          setAvailableGames(activeGames);
+        }
+      } catch (error) {
+        console.error("Error fetching games:", error);
+      }
+    };
+    fetchGames();
+  }, []);
 
   // Load shop data on mount - wait for session to be ready
   useEffect(() => {
@@ -70,23 +96,34 @@ export default function ShopSettingsPage() {
       return;
     }
 
+    // If no shop name, redirect to welcome
+    if (session?.user && !session.user.shopName) {
+      router.replace("/seller/welcome");
+      return;
+    }
+
     const fetchShopData = async () => {
       try {
-        const res = await fetch("/api/v1/seller/shop", {
-          cache: "no-store",
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-        });
+        const res = await fetch("/api/v1/seller/shop");
         const json = await res.json();
 
-        if (json.data) {
+        if (json.success && json.data) {
+          const { status: shopStatus } = json.data;
+
+          // If not approved, redirect to pending page
+          if (shopStatus !== "APPROVED") {
+            router.replace("/seller/pending");
+            return;
+          }
+
+          // Shop is approved, load data
           setShopData(json.data);
           setFormData({
             shopName: json.data.shopName || "",
             shopDesc: json.data.shopDesc || "",
             shopAvatar: json.data.shopAvatar || "",
             shopCover: json.data.shopCover || "",
+            featuredGames: json.data.featuredGames || [],
           });
         }
       } catch (error) {
@@ -98,7 +135,7 @@ export default function ShopSettingsPage() {
     };
 
     fetchShopData();
-  }, [status, router]);
+  }, [status, router, session]);
 
   // Upload image to Cloudinary
   const uploadToCloudinary = async (
@@ -235,6 +272,7 @@ export default function ShopSettingsPage() {
           shopDesc: formData.shopDesc,
           shopAvatar: formData.shopAvatar || null,
           shopCover: formData.shopCover || null,
+          featuredGames: formData.featuredGames,
         }),
       });
 
@@ -368,6 +406,7 @@ export default function ShopSettingsPage() {
                   src={formData.shopCover}
                   alt="Cover"
                   fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 600px"
                   className="object-cover"
                   unoptimized
                 />
@@ -420,6 +459,7 @@ export default function ShopSettingsPage() {
                     src={formData.shopAvatar}
                     alt="Avatar"
                     fill
+                    sizes="96px"
                     className="object-cover"
                     unoptimized
                   />
@@ -528,6 +568,78 @@ export default function ShopSettingsPage() {
             </p>
           </div>
 
+          {/* Featured Games */}
+          <div className="space-y-2">
+            <label className="font-semibold flex items-center gap-2">
+              <Package className="w-4 h-4 text-primary" />
+              Game bán chủ yếu
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {availableGames.map((game) => {
+                const isSelected = formData.featuredGames.includes(game);
+                return (
+                  <button
+                    key={game}
+                    type="button"
+                    onClick={async () => {
+                      let newGames: string[];
+                      if (isSelected) {
+                        newGames = formData.featuredGames.filter(
+                          (g) => g !== game
+                        );
+                      } else {
+                        if (formData.featuredGames.length >= 2) {
+                          toast.error("Chỉ được chọn tối đa 2 game");
+                          return;
+                        }
+                        newGames = [...formData.featuredGames, game];
+                      }
+
+                      // Update local state
+                      setFormData({
+                        ...formData,
+                        featuredGames: newGames,
+                      });
+
+                      // Auto-save to server if shop exists
+                      if (shopData?.shopName) {
+                        try {
+                          const res = await fetch("/api/v1/seller/shop", {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ featuredGames: newGames }),
+                          });
+
+                          if (res.ok) {
+                            toast.success(
+                              isSelected ? "Đã xóa game" : "Đã thêm game"
+                            );
+                          }
+                        } catch (error) {
+                          console.error("Auto-save error:", error);
+                        }
+                      }
+                    }}
+                    className={cn(
+                      "px-3 py-2 rounded-lg border text-sm font-medium transition-all",
+                      isSelected
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted/50 border-border hover:border-primary/50"
+                    )}
+                  >
+                    {game}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Chọn tối đa 3 game sẽ hiển thị trên card shop của bạn.{" "}
+              <span className="text-primary font-medium">
+                ✨ Tự động lưu khi click
+              </span>
+            </p>
+          </div>
+
           {/* VIP Upgrade */}
           <div className="glass-card rounded-2xl p-5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/20">
             <div className="flex items-start gap-4">
@@ -535,26 +647,66 @@ export default function ShopSettingsPage() {
                 <Sparkles className="w-7 h-7 text-white" />
               </div>
               <div className="flex-1">
-                <h3 className="font-bold text-lg text-amber-500">
-                  Nâng cấp Shop VIP
-                </h3>
-                <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    Shop hiển thị đầu trang chủ
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    Badge VIP nổi bật
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    Ưu tiên duyệt acc nhanh hơn
-                  </li>
-                </ul>
-                <Button className="mt-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90">
-                  Xem gói VIP
-                </Button>
+                {shopData?.isVipShop &&
+                shopData.vipShopEndTime &&
+                new Date(shopData.vipShopEndTime) > new Date() ? (
+                  <>
+                    <h3 className="font-bold text-lg text-amber-500">
+                      🎉 Shop VIP đang hoạt động
+                    </h3>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Phí hoa hồng:{" "}
+                      <span className="font-bold text-green-600">
+                        {shopData.commissionRate}%
+                      </span>
+                      <br />
+                      Hiệu lực đến:{" "}
+                      <span className="font-bold">
+                        {new Date(shopData.vipShopEndTime).toLocaleDateString(
+                          "vi-VN"
+                        )}
+                      </span>
+                    </p>
+                    <Button
+                      className="mt-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90"
+                      onClick={() => router.push("/seller/vip")}
+                    >
+                      Gia hạn VIP
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="font-bold text-lg text-amber-500">
+                      Nâng cấp Shop VIP
+                    </h3>
+                    <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                      <li className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        Shop hiển thị đầu trang chủ
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        Badge VIP nổi bật
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        Giảm phí từ 5% → 3%
+                      </li>
+                    </ul>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Phí hiện tại:{" "}
+                      <span className="font-bold">
+                        {shopData?.commissionRate || 5}%
+                      </span>
+                    </p>
+                    <Button
+                      className="mt-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90"
+                      onClick={() => router.push("/seller/vip")}
+                    >
+                      Xem gói VIP
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>

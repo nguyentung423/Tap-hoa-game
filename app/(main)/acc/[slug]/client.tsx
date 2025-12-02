@@ -4,17 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  CheckCircle2,
-  Clock,
-  X,
-} from "lucide-react";
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { ChevronLeft, ChevronRight, Eye, CheckCircle2, X } from "lucide-react";
 import { Acc } from "@/types";
 import { BuyButton, SafetyPolicyButton } from "@/components/acc";
-import { formatPrice, formatTimeAgo } from "@/lib/utils";
+import { formatPrice } from "@/lib/utils";
 
 interface Props {
   acc: Acc;
@@ -55,6 +49,7 @@ export function AccDetailClient({ acc }: Props) {
                 src={acc.images[currentImage] || acc.thumbnail}
                 alt={acc.title}
                 fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 70vw, 800px"
                 className="object-cover"
                 priority
               />
@@ -119,6 +114,7 @@ export function AccDetailClient({ acc }: Props) {
                       src={img}
                       alt={`${acc.title} - ${idx + 1}`}
                       fill
+                      sizes="80px"
                       className="object-cover"
                     />
                   </button>
@@ -162,10 +158,6 @@ export function AccDetailClient({ acc }: Props) {
               <div className="flex items-center gap-1">
                 <Eye className="w-4 h-4" />
                 <span>{acc.views} lượt xem</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Clock className="w-4 h-4" />
-                <span>Đăng {formatTimeAgo(acc.createdAt)}</span>
               </div>
             </div>
 
@@ -302,14 +294,42 @@ export function AccDetailClient({ acc }: Props) {
             )}
 
             {/* Main image */}
-            <Image
-              src={acc.images[currentImage] || acc.thumbnail}
-              alt={acc.title}
-              width={1200}
-              height={800}
-              className="max-w-[90vw] max-h-[85vh] object-contain"
-              onClick={(e) => e.stopPropagation()}
-            />
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+              <TransformWrapper
+                initialScale={1}
+                minScale={1}
+                maxScale={3}
+                doubleClick={{ disabled: false, mode: "zoomIn" }}
+                wheel={{ step: 0.1 }}
+                pinch={{ step: 5 }}
+                panning={{ disabled: false }}
+                limitToBounds={true}
+                centerOnInit={true}
+              >
+                <TransformComponent
+                  wrapperStyle={{
+                    width: "100%",
+                    height: "100%",
+                  }}
+                  contentStyle={{
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Image
+                    src={acc.images[currentImage] || acc.thumbnail}
+                    alt={acc.title}
+                    width={1200}
+                    height={800}
+                    className="max-w-[90vw] max-h-[85vh] object-contain"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </TransformComponent>
+              </TransformWrapper>
+            </div>
 
             {/* Thumbnails at bottom */}
             {acc.images.length > 1 && (
@@ -331,6 +351,7 @@ export function AccDetailClient({ acc }: Props) {
                       src={img}
                       alt={`${acc.title} - ${idx + 1}`}
                       fill
+                      sizes="56px"
                       className="object-cover"
                     />
                   </button>

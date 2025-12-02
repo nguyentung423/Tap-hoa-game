@@ -1,9 +1,38 @@
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { verify } from "jsonwebtoken";
 import { prisma } from "@/lib/db/prisma";
-import {
-  requireAdminAuth,
-  successResponse,
-  errorResponse,
-} from "@/lib/api/helpers";
+
+const JWT_SECRET =
+  process.env.ADMIN_JWT_SECRET || "admin-secret-key-change-in-production";
+
+// Verify admin JWT
+async function verifyAdmin() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_token")?.value;
+
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const decoded = verify(token, JWT_SECRET) as {
+      email: string;
+      name: string;
+      role: string;
+    };
+    if (decoded.role.toUpperCase() !== "ADMIN") {
+      return null;
+    }
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+// Cache admin stats for 30 seconds
+export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 /**
  * GET /api/v1/admin/stats
@@ -11,90 +40,123 @@ import {
  */
 export async function GET() {
   try {
-    await requireAdminAuth();
+    const admin = await verifyAdmin();
 
-    // Get stats sequentially to avoid connection pool issues
-    const totalShops = await prisma.user.count({
-      where: { shopName: { not: null } },
-    });
-    const pendingShops = await prisma.user.count({
-      where: { status: "PENDING", shopName: { not: null } },
-    });
-    const approvedShops = await prisma.user.count({
-      where: { status: "APPROVED", shopName: { not: null } },
-    });
-    const totalAccs = await prisma.acc.count();
-    const pendingAccs = await prisma.acc.count({
-      where: { status: "PENDING" },
-    });
-    const approvedAccs = await prisma.acc.count({
-      where: { status: "APPROVED" },
-    });
-    const soldAccs = await prisma.acc.count({ where: { status: "SOLD" } });
-    const totalGames = await prisma.game.count({ where: { isActive: true } });
+    if (!admin) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
 
-    // Get recent pending shops
-    const recentPendingShops = await prisma.user.findMany({
-      where: {
-        status: "PENDING",
-        shopName: { not: null },
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        shopName: true,
-        shopAvatar: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-    });
-
-    // Get recent pending accs
-    const recentPendingAccs = await prisma.acc.findMany({
-      where: { status: "PENDING" },
-      select: {
-        id: true,
-        title: true,
-        price: true,
-        thumbnail: true,
-        createdAt: true,
-        seller: {
-          select: {
-            id: true,
-            shopName: true,
+    // Optimize: Use raw SQL for faster aggregation
+    const [
+      shopStats,
+      accStats,
+      totalGames,
+      recentPendingShops,
+      recentRejectedAccs,
+    ] = await Promise.all([
+      // Shop stats in one query
+      prisma.$queryRaw<Array<{ status: string; count: bigint }>>`
+        SELECT status, COUNT(*)::bigint as count
+        FROM users
+        WHERE "shopName" IS NOT NULL
+        GROUP BY status
+      `,
+      // Acc stats in one query
+      prisma.$queryRaw<Array<{ status: string; count: bigint }>>`
+        SELECT status, COUNT(*)::bigint as count
+        FROM accs
+        GROUP BY status
+      `,
+      // Total active games
+      prisma.game.count({ where: { isActive: true } }),
+      // Recent pending shops
+      prisma.user.findMany({
+        where: {
+          status: "PENDING",
+          shopName: { not: null },
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          shopName: true,
+          shopAvatar: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+      // Recent rejected accs
+      prisma.acc.findMany({
+        where: { status: "REJECTED" },
+        select: {
+          id: true,
+          title: true,
+          price: true,
+          thumbnail: true,
+          adminNote: true,
+          createdAt: true,
+          seller: {
+            select: {
+              id: true,
+              shopName: true,
+            },
+          },
+          game: {
+            select: {
+              id: true,
+              name: true,
+              icon: true,
+            },
           },
         },
-        game: {
-          select: {
-            id: true,
-            name: true,
-            icon: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 5,
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+    ]);
+
+    // Process shop stats
+    let totalShops = 0;
+    let pendingShops = 0;
+    let approvedShops = 0;
+
+    shopStats.forEach((row) => {
+      const count = Number(row.count);
+      totalShops += count;
+      if (row.status === "PENDING") pendingShops = count;
+      if (row.status === "APPROVED") approvedShops = count;
     });
 
-    return successResponse({
+    // Process acc stats
+    let totalAccs = 0;
+    let approvedAccs = 0;
+    let rejectedAccs = 0;
+    let soldAccs = 0;
+
+    accStats.forEach((row) => {
+      const count = Number(row.count);
+      totalAccs += count;
+      if (row.status === "APPROVED") approvedAccs = count;
+      if (row.status === "REJECTED") rejectedAccs = count;
+      if (row.status === "SOLD") soldAccs = count;
+    });
+
+    return NextResponse.json({
       stats: {
         totalShops,
         pendingShops,
         approvedShops,
         totalAccs,
-        pendingAccs,
         approvedAccs,
+        rejectedAccs,
         soldAccs,
         totalGames,
       },
       recentPendingShops,
-      recentPendingAccs,
+      recentRejectedAccs,
     });
   } catch (error) {
-    if (error instanceof Response) return error;
     console.error("GET /api/v1/admin/stats error:", error);
-    return errorResponse("Có lỗi xảy ra", 500);
+    return NextResponse.json({ message: "Có lỗi xảy ra" }, { status: 500 });
   }
 }

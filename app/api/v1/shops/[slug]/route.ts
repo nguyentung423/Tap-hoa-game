@@ -35,6 +35,8 @@ export async function GET(request: NextRequest, { params }: Params) {
         shopAvatar: true,
         shopCover: true,
         isVerified: true,
+        isVipShop: true,
+        isStrategicPartner: true,
         rating: true,
         totalReviews: true,
         totalSales: true,
@@ -63,11 +65,27 @@ export async function GET(request: NextRequest, { params }: Params) {
       accWhere.game = { slug: gameSlug };
     }
 
-    // Get shop's accs
+    // Get shop's accs - optimize select for performance
     const [accs, totalAccs] = await Promise.all([
       prisma.acc.findMany({
         where: accWhere,
-        include: {
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          description: true,
+          price: true,
+          originalPrice: true,
+          thumbnail: true,
+          images: true,
+          attributes: true,
+          status: true,
+          isVip: true,
+          isHot: true,
+          views: true,
+          sellerId: true,
+          createdAt: true,
+          updatedAt: true,
           game: {
             select: {
               id: true,
@@ -84,17 +102,18 @@ export async function GET(request: NextRequest, { params }: Params) {
       prisma.acc.count({ where: accWhere }),
     ]);
 
-    // Get games that this shop sells
-    const gamesWithAccs = await prisma.acc.groupBy({
-      by: ["gameId"],
-      where: {
-        sellerId: shop.id,
-        status: "APPROVED",
-      },
-      _count: { id: true },
-    });
+    // Get games that this shop sells - using raw query instead of groupBy
+    const gamesWithAccs = await prisma.$queryRaw<
+      Array<{ gameId: string; count: bigint }>
+    >`
+      SELECT "gameId", COUNT(*)::bigint as count
+      FROM accs
+      WHERE "sellerId" = ${shop.id}
+      AND status = 'APPROVED'
+      GROUP BY "gameId"
+    `;
 
-    const gameIds = gamesWithAccs.map((g: { gameId: string }) => g.gameId);
+    const gameIds = gamesWithAccs.map((g) => g.gameId);
     const games = await prisma.game.findMany({
       where: { id: { in: gameIds } },
       select: {
@@ -112,16 +131,28 @@ export async function GET(request: NextRequest, { params }: Params) {
       currentUser = await getCurrentUser();
     } catch {}
 
-    // 2. Check cookie for viewed shops
+    // 2. Check cookie for viewed shops (format: id:timestamp,id:timestamp)
     const cookieStore = await cookies();
     const viewedShops = cookieStore.get("viewed_shops")?.value || "";
-    const viewedShopIds = viewedShops.split(",").filter(Boolean);
+    const viewedEntries = viewedShops.split(",").filter(Boolean);
+    const viewedMap = new Map<string, number>();
+
+    // Parse existing views with timestamps
+    viewedEntries.forEach((entry) => {
+      const [id, timestamp] = entry.split(":");
+      if (id && timestamp) {
+        viewedMap.set(id, parseInt(timestamp));
+      }
+    });
 
     // 3. Only increment if:
     //    - User is not the shop owner
-    //    - Shop hasn't been viewed in this session
+    //    - Shop hasn't been viewed in last 2 hours
     const isOwner = currentUser?.id === shop.id;
-    const alreadyViewed = viewedShopIds.includes(shop.id);
+    const lastViewTime = viewedMap.get(shop.id);
+    const now = Date.now();
+    const twoHoursInMs = 2 * 60 * 60 * 1000; // 2 hours
+    const alreadyViewed = lastViewTime && now - lastViewTime < twoHoursInMs;
 
     let newTotalViews = shop.totalViews;
 
@@ -150,11 +181,21 @@ export async function GET(request: NextRequest, { params }: Params) {
       },
     });
 
-    // Set cookie to track viewed shops (expires in 1 hour)
+    // Set cookie to track viewed shops (expires in 2 hours)
     if (!alreadyViewed && !isOwner) {
-      const newViewedShops = [...viewedShopIds, shop.id].join(",");
-      response.cookies.set("viewed_shops", newViewedShops, {
-        maxAge: 60 * 60, // 1 hour
+      // Update view map with current timestamp
+      viewedMap.set(shop.id, now);
+
+      // Clean up old entries (older than 2 hours)
+      const cleanedEntries: string[] = [];
+      viewedMap.forEach((timestamp, id) => {
+        if (now - timestamp < twoHoursInMs) {
+          cleanedEntries.push(`${id}:${timestamp}`);
+        }
+      });
+
+      response.cookies.set("viewed_shops", cleanedEntries.join(","), {
+        maxAge: 2 * 60 * 60, // 2 hours
         httpOnly: true,
         sameSite: "lax",
       });

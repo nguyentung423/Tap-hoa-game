@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { LayoutDashboard, Package, Plus, Store, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,11 +28,24 @@ const sellerNavItems = [
 
 export function SellerBottomNav() {
   const pathname = usePathname();
+  const { data: session } = useSession();
   const [mounted, setMounted] = useState(false);
+
+  // Check if user is approved
+  const isApproved = session?.user?.status === "APPROVED";
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Don't show nav on pending page
+  if (
+    pathname === "/seller/pending" ||
+    pathname === "/seller/welcome" ||
+    pathname === "/seller"
+  ) {
+    return null;
+  }
 
   if (!mounted) {
     // Return placeholder to avoid layout shift
@@ -41,6 +55,11 @@ export function SellerBottomNav() {
         <div className="relative flex items-center justify-around px-4 py-2 safe-area-bottom h-16" />
       </nav>
     );
+  }
+
+  // Don't show nav if not approved
+  if (!isApproved) {
+    return null;
   }
 
   return (

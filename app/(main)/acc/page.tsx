@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { Loader2, Search, SlidersHorizontal, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AccCard } from "@/components/acc/acc-card";
-import { GAMES } from "@/types/game";
 import { Acc } from "@/types";
 import { transformApiAcc } from "@/lib/transforms/acc";
 
@@ -20,7 +20,9 @@ export default function AccListPage() {
   const searchFromUrl = searchParams.get("q");
 
   const [accs, setAccs] = useState<Acc[]>([]);
+  const [games, setGames] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingGames, setIsLoadingGames] = useState(true);
   const [selectedGame, setSelectedGame] = useState<string | undefined>(
     gameFromUrl || undefined
   );
@@ -41,6 +43,27 @@ export default function AccListPage() {
       scroll: false,
     });
   };
+
+  // Fetch games from API
+  useEffect(() => {
+    const fetchGames = async () => {
+      setIsLoadingGames(true);
+      try {
+        const res = await fetch("/api/v1/games", {
+          next: { revalidate: 60 }, // Cache 60s
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setGames(data.data || data || []);
+        }
+      } catch (error) {
+        console.error("Error fetching games:", error);
+      } finally {
+        setIsLoadingGames(false);
+      }
+    };
+    fetchGames();
+  }, []);
 
   // Fetch accs from API
   useEffect(() => {
@@ -63,11 +86,18 @@ export default function AccListPage() {
         };
         params.set("sort", sortMap[sortBy] || "newest");
 
-        const res = await fetch(`/api/v1/accs?${params.toString()}`);
+        const res = await fetch(`/api/v1/accs?${params.toString()}`, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
+        });
         if (res.ok) {
           const data = await res.json();
           const items = data.data?.items || data.items || [];
+          console.log("Fetched accs:", items.length, "items");
           setAccs(items.map(transformApiAcc));
+        } else {
+          console.error("Accs API error:", res.status, await res.text());
+          setAccs([]);
         }
       } catch (error) {
         console.error("Error fetching accs:", error);
@@ -152,7 +182,7 @@ export default function AccListPage() {
           <span className="text-sm text-muted-foreground">Đang lọc:</span>
           {selectedGame && (
             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-sm">
-              {GAMES.find((g) => g.slug === selectedGame)?.name}
+              {games.find((g: any) => g.slug === selectedGame)?.name}
               <button
                 onClick={() => handleGameSelect(undefined)}
                 className="hover:text-primary/70"
@@ -226,40 +256,58 @@ export default function AccListPage() {
                 >
                   Tất cả game
                 </button>
-                {GAMES.filter((g) => g.isActive).map((game) => (
-                  <button
-                    key={game.slug}
-                    onClick={() => handleGameSelect(game.slug)}
-                    className={cn(
-                      "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2",
-                      selectedGame === game.slug
-                        ? "bg-primary text-primary-foreground"
-                        : "hover:bg-muted"
-                    )}
-                  >
-                    <span>{game.icon}</span>
-                    <span>{game.name}</span>
-                  </button>
-                ))}
+                {isLoadingGames ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="h-9 bg-muted rounded-lg animate-pulse"
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  games
+                    .filter((g: any) => g.isActive)
+                    .map((game: any) => (
+                      <button
+                        key={game.slug}
+                        onClick={() => handleGameSelect(game.slug)}
+                        className={cn(
+                          "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2",
+                          selectedGame === game.slug
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-muted"
+                        )}
+                      >
+                        <span className="text-xl">{game.icon}</span>
+                        <span>{game.name}</span>
+                      </button>
+                    ))
+                )}
 
                 {/* Coming soon games */}
-                <div className="pt-2 mt-2 border-t border-border/50">
-                  <p className="text-xs text-muted-foreground mb-2 px-3">
-                    Sắp ra mắt
-                  </p>
-                  {GAMES.filter((g) => !g.isActive).map((game) => (
-                    <div
-                      key={game.slug}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 opacity-50 cursor-not-allowed"
-                    >
-                      <span>{game.icon}</span>
-                      <span>{game.name}</span>
-                      <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-500 font-bold">
-                        Soon
-                      </span>
+                {!isLoadingGames &&
+                  games.filter((g: any) => !g.isActive).length > 0 && (
+                    <div className="pt-2 mt-2 border-t border-border/50">
+                      <p className="text-xs text-muted-foreground mb-2 px-3">
+                        Sắp ra mắt
+                      </p>
+                      {games
+                        .filter((g: any) => !g.isActive)
+                        .map((game: any) => (
+                          <div
+                            key={game.slug}
+                            className="w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 opacity-50 cursor-not-allowed"
+                          >
+                            <span className="text-xl">{game.icon}</span>
+                            <span>{game.name}</span>
+                            <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-500 font-bold">
+                              Soon
+                            </span>
+                          </div>
+                        ))}
                     </div>
-                  ))}
-                </div>
+                  )}
               </div>
             </div>
 

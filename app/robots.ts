@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/api/", "/admin/", "/_next/"],
     },
-    sitemap: "https://taphoagame.vn/sitemap.xml",
+    sitemap: "https://taphoagame.online/sitemap.xml",
   };
 }

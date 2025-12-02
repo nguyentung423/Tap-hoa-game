@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   ArrowLeft,
   Upload,
@@ -18,7 +19,15 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { GAMES, type Game, type AccField } from "@/config/games";
+
+interface Game {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string;
+  fields: any[];
+  isActive: boolean;
+}
 
 interface FormData {
   gameId: string;
@@ -42,6 +51,7 @@ const initialFormData: FormData = {
 
 export default function PostAccPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState(1);
@@ -49,12 +59,125 @@ export default function PostAccPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [games, setGames] = useState<Game[]>([]);
+  const [isLoadingGames, setIsLoadingGames] = useState(true);
 
-  const selectedGame = GAMES.find((g) => g.id === formData.gameId);
+  const selectedGame = games.find((g: any) => g.id === formData.gameId);
+
+  // Check shop status before allowing access
+  useEffect(() => {
+    if (status === "loading") return;
+
+    if (status === "unauthenticated") {
+      router.replace("/seller");
+      return;
+    }
+
+    if (session?.user && !session.user.shopName) {
+      router.replace("/seller/welcome");
+      return;
+    }
+
+    // Check if shop is approved
+    const checkShopStatus = async () => {
+      try {
+        const res = await fetch("/api/v1/seller/shop");
+        const json = await res.json();
+
+        if (json.success && json.data) {
+          const { status: shopStatus } = json.data;
+
+          // If not approved, redirect to pending page
+          if (shopStatus !== "APPROVED") {
+            router.replace("/seller/pending");
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Error checking shop status:", error);
+      }
+    };
+
+    checkShopStatus();
+  }, [session, status, router]);
+
+  // Fetch games from API
+  useEffect(() => {
+    const fetchGames = async () => {
+      setIsLoadingGames(true);
+      try {
+        const res = await fetch("/api/v1/games", {
+          next: { revalidate: 60 }, // Cache 60s
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setGames(data.data || data || []);
+        }
+      } catch (error) {
+        console.error("Error fetching games:", error);
+      } finally {
+        setIsLoadingGames(false);
+      }
+    };
+    fetchGames();
+  }, []);
 
   const handleGameSelect = (gameId: string) => {
     setFormData({ ...formData, gameId, attributes: {} });
     setStep(2);
+  };
+
+  // Compress image before upload
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = document.createElement("img");
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_SIZE = 1920; // Tăng từ 800 -> 1920px (Full HD)
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File([blob], file.name, {
+                  type: "image/jpeg",
+                  lastModified: Date.now(),
+                });
+                resolve(compressedFile);
+              } else {
+                reject(new Error("Canvas to Blob failed"));
+              }
+            },
+            "image/jpeg",
+            0.92 // Tăng từ 0.7 -> 0.92 (92% quality)
+          );
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+    });
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,30 +186,49 @@ export default function PostAccPage() {
 
     setIsUploading(true);
 
-    for (const file of Array.from(files)) {
-      try {
-        const formDataUpload = new FormData();
-        formDataUpload.append("file", file);
+    // Upload in batches of 3 to avoid overwhelming the server
+    const fileArray = Array.from(files);
+    const batchSize = 3;
+    const allUrls: string[] = [];
 
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          body: formDataUpload,
-        });
+    for (let i = 0; i < fileArray.length; i += batchSize) {
+      const batch = fileArray.slice(i, i + batchSize);
 
-        if (response.ok) {
-          const data = await response.json();
-          setFormData((prev) => ({
-            ...prev,
-            images: [...prev.images, data.url].slice(0, 15),
-          }));
-        } else {
-          const errorData = await response.text();
-          console.error("Upload error:", response.status, errorData);
+      const uploadPromises = batch.map(async (file) => {
+        try {
+          // Compress image first
+          const compressedFile = await compressImage(file);
+
+          const formDataUpload = new FormData();
+          formDataUpload.append("file", compressedFile);
+
+          const response = await fetch("/api/upload", {
+            method: "POST",
+            body: formDataUpload,
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            return data.url;
+          } else {
+            console.error("Upload error:", response.status);
+            return null;
+          }
+        } catch (error) {
+          console.error("Upload error:", error);
+          return null;
         }
-      } catch (error) {
-        console.error("Upload error:", error);
-      }
+      });
+
+      const batchUrls = await Promise.all(uploadPromises);
+      const validUrls = batchUrls.filter((url) => url !== null) as string[];
+      allUrls.push(...validUrls);
     }
+
+    setFormData((prev) => ({
+      ...prev,
+      images: [...prev.images, ...allUrls].slice(0, 15),
+    }));
 
     setIsUploading(false);
   };
@@ -100,29 +242,51 @@ export default function PostAccPage() {
 
     setIsUploading(true);
 
-    for (const file of Array.from(files)) {
-      if (!file.type.startsWith("image/")) continue;
+    // Upload in batches of 3
+    const fileArray = Array.from(files).filter((file) =>
+      file.type.startsWith("image/")
+    );
+    const batchSize = 3;
+    const allUrls: string[] = [];
 
-      try {
-        const formDataUpload = new FormData();
-        formDataUpload.append("file", file);
+    for (let i = 0; i < fileArray.length; i += batchSize) {
+      const batch = fileArray.slice(i, i + batchSize);
 
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          body: formDataUpload,
-        });
+      const uploadPromises = batch.map(async (file) => {
+        try {
+          // Compress image first
+          const compressedFile = await compressImage(file);
 
-        if (response.ok) {
-          const data = await response.json();
-          setFormData((prev) => ({
-            ...prev,
-            images: [...prev.images, data.url].slice(0, 15),
-          }));
+          const formDataUpload = new FormData();
+          formDataUpload.append("file", compressedFile);
+
+          const response = await fetch("/api/upload", {
+            method: "POST",
+            body: formDataUpload,
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            return data.url;
+          } else {
+            console.error("Upload error:", response.status);
+            return null;
+          }
+        } catch (error) {
+          console.error("Upload error:", error);
+          return null;
         }
-      } catch (error) {
-        console.error("Upload error:", error);
-      }
+      });
+
+      const batchUrls = await Promise.all(uploadPromises);
+      const validUrls = batchUrls.filter((url) => url !== null) as string[];
+      allUrls.push(...validUrls);
     }
+
+    setFormData((prev) => ({
+      ...prev,
+      images: [...prev.images, ...allUrls].slice(0, 15),
+    }));
 
     setIsUploading(false);
   };
@@ -185,7 +349,7 @@ export default function PostAccPage() {
       .filter((f) => f.required)
       .every((f) => formData.attributes[f.key]?.trim()) ?? false;
 
-  const canSubmit = canProceedStep2 && requiredFieldsFilled;
+  const canSubmit = canProceedStep2 && formData.description.trim().length >= 10;
 
   // Debug log
   console.log(
@@ -249,30 +413,42 @@ export default function PostAccPage() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {GAMES.filter((g) => g.isActive).map((game) => (
-                <button
-                  key={game.id}
-                  onClick={() => handleGameSelect(game.id)}
-                  className={cn(
-                    "relative group p-4 rounded-2xl border-2 transition-all text-left",
-                    formData.gameId === game.id
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/50 bg-card"
-                  )}
-                >
-                  <div className="w-16 h-16 mx-auto mb-3 rounded-xl bg-muted flex items-center justify-center text-4xl">
-                    {game.icon}
-                  </div>
-                  <h3 className="font-semibold text-center text-sm line-clamp-2">
-                    {game.name}
-                  </h3>
-                  {formData.gameId === game.id && (
-                    <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                      <Check className="w-4 h-4 text-primary-foreground" />
+              {isLoadingGames
+                ? Array.from({ length: 8 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="p-4 rounded-2xl border-2 border-border bg-card animate-pulse"
+                    >
+                      <div className="w-16 h-16 mx-auto mb-3 rounded-xl bg-muted" />
+                      <div className="h-4 bg-muted rounded mx-auto w-3/4" />
                     </div>
-                  )}
-                </button>
-              ))}
+                  ))
+                : games
+                    .filter((g: any) => g.isActive)
+                    .map((game: any) => (
+                      <button
+                        key={game.id}
+                        onClick={() => handleGameSelect(game.id)}
+                        className={cn(
+                          "relative group p-4 rounded-2xl border-2 transition-all text-left",
+                          formData.gameId === game.id
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50 bg-card"
+                        )}
+                      >
+                        <div className="w-16 h-16 mx-auto mb-3 rounded-xl bg-muted flex items-center justify-center text-4xl">
+                          {game.icon}
+                        </div>
+                        <h3 className="font-semibold text-center text-sm line-clamp-2">
+                          {game.name}
+                        </h3>
+                        {formData.gameId === game.id && (
+                          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="w-4 h-4 text-primary-foreground" />
+                          </div>
+                        )}
+                      </button>
+                    ))}
             </div>
           </div>
         )}
@@ -328,14 +504,29 @@ export default function PostAccPage() {
                     <p className="text-sm text-muted-foreground mb-4">
                       hoặc click để chọn file
                     </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Chọn ảnh
-                    </Button>
+                    {isUploading ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                          <span className="text-sm font-medium text-primary">
+                            Đang tải ảnh chất lượng cao...
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Ảnh được tối ưu Full HD để hiển thị đẹp nhất cho khách
+                          hàng
+                        </p>
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Chọn ảnh
+                      </Button>
+                    )}
                   </>
                 ) : (
                   <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
@@ -348,6 +539,7 @@ export default function PostAccPage() {
                           src={img}
                           alt={`Image ${i + 1}`}
                           fill
+                          sizes="(max-width: 640px) 33vw, 20vw"
                           className="object-cover"
                         />
                         <button
@@ -366,13 +558,41 @@ export default function PostAccPage() {
                     {formData.images.length < 15 && (
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex items-center justify-center transition-colors"
+                        disabled={isUploading}
+                        className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed p-2"
                       >
-                        <Plus className="w-6 h-6 text-muted-foreground" />
+                        {isUploading ? (
+                          <>
+                            <Loader2 className="w-6 h-6 text-primary animate-spin mb-1" />
+                            <span className="text-[10px] text-center text-muted-foreground">
+                              Đang tải HD...
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-6 h-6 text-muted-foreground mb-1" />
+                            <span className="text-[10px] text-muted-foreground">
+                              Thêm ảnh
+                            </span>
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
                 )}
+
+                {isUploading && formData.images.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-primary mt-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Đang tải ảnh chất lượng cao (Full HD)...</span>
+                  </div>
+                )}
+
+                <p className="text-xs text-muted-foreground mt-2">
+                  💡 Ảnh được tự động tối ưu Full HD để hiển thị sắc nét cho
+                  khách hàng
+                </p>
+
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -412,6 +632,9 @@ export default function PostAccPage() {
               <div className="space-y-2">
                 <label className="font-semibold">
                   Giá bán <span className="text-red-500">*</span>
+                  <span className="text-xs text-muted-foreground font-normal ml-2">
+                    (Giá khách hàng sẽ mua)
+                  </span>
                 </label>
                 <div className="relative">
                   <input
@@ -436,7 +659,10 @@ export default function PostAccPage() {
               </div>
               <div className="space-y-2">
                 <label className="font-semibold text-muted-foreground">
-                  Giá gốc (nếu có)
+                  Giá gốc
+                  <span className="text-xs font-normal ml-2">
+                    (Để so sánh, khách thấy được giảm giá)
+                  </span>
                 </label>
                 <div className="relative">
                   <input
@@ -458,7 +684,12 @@ export default function PostAccPage() {
 
             {/* Description */}
             <div className="space-y-2">
-              <label className="font-semibold">Mô tả chi tiết</label>
+              <label className="font-semibold">
+                Mô tả chi tiết <span className="text-red-500">*</span>
+                <span className="text-xs text-muted-foreground font-normal ml-2">
+                  (Tối thiểu 10 ký tự)
+                </span>
+              </label>
               <textarea
                 value={formData.description}
                 onChange={(e) =>
@@ -468,77 +699,13 @@ export default function PostAccPage() {
                 rows={4}
                 className="w-full px-4 py-3 rounded-xl bg-muted/50 border border-border focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
               />
+              {formData.description && formData.description.length < 10 && (
+                <p className="text-xs text-red-500">
+                  Vui lòng nhập ít nhất 10 ký tự ({formData.description.length}
+                  /10)
+                </p>
+              )}
             </div>
-
-            {/* Game Attributes - inline in step 2 */}
-            {selectedGame && selectedGame.fields.length > 0 ? (
-              <div className="glass-card rounded-2xl p-6 space-y-4">
-                <h3 className="font-bold flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-primary" />
-                  Thông tin {selectedGame.name}
-                </h3>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {selectedGame.fields.map((field) => (
-                    <div key={field.key} className="space-y-2">
-                      <label className="font-medium text-sm flex items-center gap-2">
-                        {field.label}
-                        {field.required && (
-                          <span className="text-red-500">*</span>
-                        )}
-                      </label>
-
-                      {field.type === "select" ? (
-                        <select
-                          value={formData.attributes[field.key] || ""}
-                          onChange={(e) => {
-                            const newAttrs = {
-                              ...formData.attributes,
-                              [field.key]: e.target.value,
-                            };
-                            setFormData((prev) => ({
-                              ...prev,
-                              attributes: newAttrs,
-                            }));
-                          }}
-                          className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:outline-none transition-all"
-                        >
-                          <option value="">
-                            Chọn {field.label.toLowerCase()}
-                          </option>
-                          {field.options?.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          type={field.type === "number" ? "number" : "text"}
-                          value={formData.attributes[field.key] || ""}
-                          onChange={(e) => {
-                            const newAttrs = {
-                              ...formData.attributes,
-                              [field.key]: e.target.value,
-                            };
-                            setFormData((prev) => ({
-                              ...prev,
-                              attributes: newAttrs,
-                            }));
-                          }}
-                          placeholder={`Nhập ${field.label.toLowerCase()}`}
-                          className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-4 text-muted-foreground">
-                Không tìm thấy thông tin game (gameId: {formData.gameId})
-              </div>
-            )}
 
             {/* Submit Button */}
             <Button
@@ -558,11 +725,6 @@ export default function PostAccPage() {
                 </>
               )}
             </Button>
-
-            <p className="text-xs text-center text-muted-foreground">
-              <Info className="w-3 h-3 inline mr-1" />
-              Acc sẽ được Admin duyệt trong vòng 30 phút
-            </p>
           </div>
         )}
       </div>

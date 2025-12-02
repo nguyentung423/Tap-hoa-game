@@ -4,28 +4,42 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-// Create Prisma client with connection pool settings for PgBouncer
+// Create Prisma client with optimized settings for PgBouncer
 const createPrismaClient = () => {
   return new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    log: process.env.NODE_ENV === "development" ? ["warn"] : ["error"],
     datasources: {
       db: {
         url: process.env.DATABASE_URL,
       },
     },
+  }).$extends({
+    query: {
+      $allModels: {
+        async $allOperations({ operation, model, args, query }) {
+          const start = performance.now();
+          const result = await query(args);
+          const end = performance.now();
+          if (process.env.NODE_ENV === "development" && end - start > 100) {
+            console.log(
+              `Slow query: ${model}.${operation} took ${Math.round(
+                end - start
+              )}ms`
+            );
+          }
+          return result;
+        },
+      },
+    },
   });
 };
 
+// Reuse Prisma client - PgBouncer prepared statement issue is handled by connection string config
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
-
-// Helper to get a fresh client for operations that need it
-export const getFreshPrismaClient = () => {
-  return new PrismaClient({
-    log: ["error"],
-  });
-};
+if (!globalForPrisma.prisma) {
+  globalForPrisma.prisma = prisma;
+}
 
 // Helper function to execute with retry for prepared statement errors
 export async function withRetry<T>(

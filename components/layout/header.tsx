@@ -8,7 +8,7 @@ import { signOut, useSession } from "next-auth/react";
 import {
   Menu,
   X,
-  Search,
+  Newspaper,
   User,
   Home,
   ShoppingBag,
@@ -31,7 +31,7 @@ export function Header() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"login" | "register">(
     "login"
@@ -48,6 +48,7 @@ export function Header() {
         email: session.user.email || "",
         avatar: session.user.image || null,
         hasShop: !!session.user.shopName, // Has shop if shopName exists
+        status: session.user.status || "PENDING", // Shop approval status
       }
     : null;
 
@@ -109,13 +110,17 @@ export function Header() {
             >
               Mua acc
             </Link>
-            {isLoggedIn ? (
+            {isLoggedIn && user?.hasShop && user?.status === "APPROVED" ? (
               <Link
                 href="/seller/shop"
                 className="text-sm text-muted-foreground hover:text-neon-green transition-colors"
               >
                 Shop của tôi
               </Link>
+            ) : isLoggedIn ? (
+              <span className="text-sm text-muted-foreground/50 cursor-not-allowed">
+                Shop của tôi
+              </span>
             ) : (
               <button
                 onClick={() => openAuthModal("register")}
@@ -126,29 +131,22 @@ export function Header() {
             )}
           </nav>
 
-          {/* Search - Desktop */}
-          <div className="hidden md:flex flex-1 max-w-md">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Tìm acc game..."
-                className="pl-10 bg-white/5 border-white/10"
-              />
-            </div>
+          {/* News Link */}
+          <div className="flex items-center">
+            <Link href="/news">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 hover:bg-white/5"
+              >
+                <Newspaper className="h-4 w-4" />
+                <span className="hidden md:inline">Tin Tức</span>
+              </Button>
+            </Link>
           </div>
 
           {/* Actions */}
           <div className="flex items-center gap-2">
-            {/* Mobile search toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setIsSearchOpen(!isSearchOpen)}
-            >
-              <Search className="h-5 w-5" />
-            </Button>
-
             {/* User Menu / Login Button */}
             {isLoggedIn && user ? (
               /* Logged in - Show user dropdown */
@@ -199,7 +197,7 @@ export function Header() {
 
                       {/* Menu Items */}
                       <div className="py-1">
-                        {user.hasShop ? (
+                        {user.hasShop && user.status === "APPROVED" ? (
                           <>
                             <Link
                               href="/seller/dashboard"
@@ -226,6 +224,15 @@ export function Header() {
                               <span className="text-sm">Cài đặt Shop</span>
                             </Link>
                           </>
+                        ) : user.hasShop ? (
+                          <Link
+                            href="/seller/pending"
+                            onClick={() => setShowUserMenu(false)}
+                            className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted transition-colors"
+                          >
+                            <Store className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm">Shop (Chờ duyệt)</span>
+                          </Link>
                         ) : (
                           <Link
                             href="/seller/welcome"
@@ -287,29 +294,6 @@ export function Header() {
             )}
           </div>
         </div>
-
-        {/* Mobile Search - Expandable */}
-        <AnimatePresence>
-          {isSearchOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden border-t border-white/10 md:hidden"
-            >
-              <div className="container py-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Tìm acc game..."
-                    className="pl-10"
-                    autoFocus
-                  />
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </header>
 
       {/* Auth Modal */}
@@ -424,6 +408,39 @@ export function MobileBottomNav() {
 }
 
 export function Footer() {
+  const [games, setGames] = useState<any[]>([]);
+  const [siteSettings, setSiteSettings] = useState<any>(null);
+
+  useEffect(() => {
+    // Fetch games and site settings
+    const fetchData = async () => {
+      try {
+        const [gamesRes, settingsRes] = await Promise.all([
+          fetch("/api/v1/games"),
+          fetch("/api/v1/settings"),
+        ]);
+
+        if (gamesRes.ok) {
+          const gamesData = await gamesRes.json();
+          setGames(gamesData.data || gamesData || []);
+        }
+
+        if (settingsRes.ok) {
+          const settingsData = await settingsRes.json();
+          setSiteSettings(settingsData.data || settingsData);
+        }
+      } catch (error) {
+        console.error("Footer data fetch error:", error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Show first 4 games in footer
+  const footerGames = games.slice(0, 4);
+  const adminZaloPhone = siteSettings?.adminPhone || siteConfig.admin.zaloPhone;
+
   return (
     <footer className="border-t border-white/10 bg-dark-card py-8 pb-24 md:pb-8">
       <div className="container">
@@ -469,44 +486,48 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Games */}
+          {/* Games - Dynamic from API */}
           <div>
             <h4 className="mb-4 font-semibold">Game</h4>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>
-                <Link
-                  href="/acc?game=lien-quan"
-                  className="hover:text-neon-green transition-colors"
-                >
-                  Liên Quân Mobile
-                </Link>
-              </li>
-              <li className="flex items-center gap-2 opacity-50">
-                <span>Liên Minh Huyền Thoại</span>
-                <span className="px-1.5 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-500 font-bold">
-                  Sắp ra mắt
-                </span>
-              </li>
-              <li className="flex items-center gap-2 opacity-50">
-                <span>Genshin Impact</span>
-                <span className="px-1.5 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-500 font-bold">
-                  Sắp ra mắt
-                </span>
-              </li>
-              <li className="flex items-center gap-2 opacity-50">
-                <span>Valorant</span>
-                <span className="px-1.5 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-500 font-bold">
-                  Sắp ra mắt
-                </span>
-              </li>
-            </ul>
+            {footerGames.length > 0 ? (
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                {footerGames.map((game: any) => (
+                  <li key={game.id}>
+                    {game.isActive ? (
+                      <Link
+                        href={`/acc?game=${game.slug}`}
+                        className="hover:text-neon-green transition-colors"
+                      >
+                        {game.name}
+                      </Link>
+                    ) : (
+                      <div className="flex items-center gap-2 opacity-50">
+                        <span>{game.name}</span>
+                        <span className="px-1.5 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-500 font-bold">
+                          Sắp ra mắt
+                        </span>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="animate-pulse">
+                  <div className="h-4 bg-muted rounded w-32"></div>
+                </li>
+                <li className="animate-pulse">
+                  <div className="h-4 bg-muted rounded w-28"></div>
+                </li>
+              </ul>
+            )}
           </div>
 
-          {/* Contact */}
+          {/* Contact - Dynamic from API */}
           <div>
             <h4 className="mb-4 font-semibold">Liên hệ Admin</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>Zalo: {siteConfig.admin.zaloPhone}</li>
+              <li>Zalo: {adminZaloPhone}</li>
               <li>Hỗ trợ 24/7</li>
             </ul>
           </div>

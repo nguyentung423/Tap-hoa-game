@@ -9,7 +9,7 @@ export const siteConfig = {
 
   // Admin Zalo - QUAN TRỌNG: Thay bằng số của bạn
   admin: {
-    zaloPhone: process.env.NEXT_PUBLIC_ADMIN_ZALO || "0912345678",
+    zaloPhone: process.env.NEXT_PUBLIC_ADMIN_ZALO || "0374918396",
     zaloName: "Tạp hoá game - Trung Gian",
   },
 

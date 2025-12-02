@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
-import { Button } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 interface ErrorProps {
@@ -14,7 +14,9 @@ interface ErrorProps {
 export default function Error({ error, reset }: ErrorProps) {
   useEffect(() => {
     // Log the error to an error reporting service
-    console.error("Error:", error);
+    if (error) {
+      console.error("Error caught:", error.message || error);
+    }
   }, [error]);
 
   return (
@@ -37,6 +39,14 @@ export default function Error({ error, reset }: ErrorProps) {
         <p className="text-muted-foreground mb-6">
           Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại hoặc quay về trang chủ.
         </p>
+
+        {process.env.NODE_ENV === "development" && error && (
+          <div className="mb-6 p-4 rounded-lg bg-muted text-left">
+            <p className="text-xs font-mono text-muted-foreground break-all">
+              {error.message || String(error)}
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button onClick={reset} className="gap-2">

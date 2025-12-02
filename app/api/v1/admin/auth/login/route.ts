@@ -4,9 +4,9 @@ import { sign } from "jsonwebtoken";
 
 // Admin credentials - In production, store in database with hashed password
 const ADMIN_CREDENTIALS = {
-  email: "admin@accvip.vn",
-  password: "admin123", // In production, use bcrypt
-  name: "Super Admin",
+  email: "ntung6771@gmail.com",
+  password: "Qazplmq1@",
+  name: "Admin",
 };
 
 const JWT_SECRET =

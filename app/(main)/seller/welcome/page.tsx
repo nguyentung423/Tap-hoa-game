@@ -18,6 +18,9 @@ import {
   Sparkles,
   Package,
   Loader2,
+  MessageCircle,
+  FileText,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,18 +38,29 @@ export default function SellerWelcomePage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [adminZalo, setAdminZalo] = useState("");
 
-  // Check if user already has a shop
+  // Check if user already has a shop and fetch admin zalo
   useEffect(() => {
     const checkExistingShop = async () => {
       try {
-        const res = await fetch("/api/v1/seller/shop");
-        const json = await res.json();
+        const [shopRes, settingsRes] = await Promise.all([
+          fetch("/api/v1/seller/shop"),
+          fetch("/api/v1/settings"),
+        ]);
 
-        if (json.success && json.data?.shopName) {
+        const shopJson = await shopRes.json();
+        const settingsJson = await settingsRes.json();
+
+        if (shopJson.success && shopJson.data?.shopName) {
           // User already has a shop, redirect to dashboard
           router.replace("/seller/dashboard");
           return;
+        }
+
+        // Get admin zalo phone
+        if (settingsJson.success && settingsJson.data?.adminPhone) {
+          setAdminZalo(settingsJson.data.adminPhone);
         }
       } catch (error) {
         console.error("Error checking shop:", error);
@@ -128,7 +142,8 @@ export default function SellerWelcomePage() {
       }
 
       toast.success("Tạo shop thành công!");
-      setCurrentStep("done");
+      // Redirect to pending page instead of showing done step
+      router.push("/seller/pending");
     } catch (error) {
       console.error("Error creating shop:", error);
       toast.error("Đã xảy ra lỗi khi tạo shop");
@@ -367,7 +382,7 @@ export default function SellerWelcomePage() {
             </motion.div>
           )}
 
-          {/* Step 3: Done - Suggest posting first acc */}
+          {/* Step 3: Done - Contact admin to verify */}
           {currentStep === "done" && (
             <motion.div
               key="done"
@@ -408,9 +423,7 @@ export default function SellerWelcomePage() {
                   transition={{ delay: 0.6 }}
                   className="text-muted-foreground"
                 >
-                  Shop của bạn đang chờ Admin duyệt
-                  <br />
-                  <span className="text-sm">(thường trong vòng 24h)</span>
+                  Để được duyệt và bắt đầu bán hàng
                 </motion.p>
               </div>
 
@@ -450,33 +463,104 @@ export default function SellerWelcomePage() {
                 )}
               </motion.div>
 
-              {/* Suggestion to post first acc */}
+              {/* Main CTA: Contact Admin via Zalo */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.9 }}
                 className="p-6 rounded-2xl bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20"
               >
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
-                    <Package className="w-6 h-6 text-primary" />
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
+                    <MessageCircle className="w-8 h-8 text-primary" />
                   </div>
+
                   <div>
-                    <h3 className="font-semibold mb-1">
-                      💡 Mẹo: Đăng acc ngay!
+                    <h3 className="font-bold text-lg mb-2">
+                      📱 Liên hệ Admin để được duyệt
                     </h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Trong khi chờ duyệt, bạn có thể chuẩn bị sẵn acc để đăng.
-                      Khi shop được duyệt, acc sẽ tự động hiển thị!
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Nhắn tin qua Zalo và gửi kèm thông tin xác minh
                     </p>
-                    <Button
-                      onClick={handleSkipToPost}
-                      className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-black font-semibold"
-                    >
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Thêm acc đầu tiên
-                    </Button>
                   </div>
+
+                  <Button
+                    onClick={() => {
+                      if (adminZalo) {
+                        window.open(`https://zalo.me/${adminZalo}`, "_blank");
+                      } else {
+                        toast.error("Không tìm thấy thông tin admin");
+                      }
+                    }}
+                    className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-black font-semibold text-base h-12"
+                  >
+                    <MessageCircle className="w-5 h-5 mr-2" />
+                    Nhắn Zalo Admin
+                  </Button>
+                </div>
+              </motion.div>
+
+              {/* Instructions */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.1 }}
+                className="space-y-4"
+              >
+                <h4 className="font-semibold text-center mb-4">
+                  Vui lòng gửi kèm thông tin sau:
+                </h4>
+
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-muted/50">
+                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+                      <Store className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Tên shop</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        <span className="font-mono bg-muted px-2 py-1 rounded">
+                          {shopName}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-muted/50">
+                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+                      <FileText className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Email đã đăng ký</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Để admin tìm và duyệt shop của bạn
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
+                      <CreditCard className="w-4 h-4 text-amber-500" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">
+                        Ảnh CCCD (mặt trước) - Đã che mặt và 6 số cuối
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        ⚠️ <strong>Bảo mật:</strong> Hãy che ảnh mặt và 6 số
+                        cuối CCCD. Admin chỉ cần xác minh họ tên + địa chỉ.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                  <p className="text-xs text-center text-muted-foreground">
+                    💡 <strong>Mẹo:</strong> Admin thường duyệt trong vòng vài
+                    giờ.
+                    <br />
+                    Bạn sẽ nhận được thông báo khi shop được duyệt!
+                  </p>
                 </div>
               </motion.div>
 
@@ -484,7 +568,7 @@ export default function SellerWelcomePage() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 1.1 }}
+                transition={{ delay: 1.3 }}
                 className="text-center"
               >
                 <Button

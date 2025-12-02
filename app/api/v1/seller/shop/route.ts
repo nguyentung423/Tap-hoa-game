@@ -6,30 +6,47 @@ import {
   errorResponse,
 } from "@/lib/api/helpers";
 
+// Cache for 60 seconds
+export const dynamic = "force-dynamic";
+export const revalidate = 60;
+
 /**
  * GET /api/v1/seller/shop
  * Lấy thông tin shop của seller hiện tại
  */
 export async function GET() {
+  const startTime = Date.now();
   try {
     const user = await getCurrentUser();
     if (!user) {
       return errorResponse("Bạn cần đăng nhập", 401);
     }
 
-    // Đếm số acc đang bán (APPROVED)
-    const totalAccsOnSale = await prisma.acc.count({
-      where: {
-        sellerId: user.id,
-        status: "APPROVED",
-      },
-    });
+    // Optimize: Get acc counts and total views with single raw query
+    const accStats = await prisma.$queryRaw<
+      Array<{ status: string; count: bigint; total_views: bigint }>
+    >`
+      SELECT 
+        status,
+        COUNT(*)::bigint as count,
+        COALESCE(SUM(views), 0)::bigint as total_views
+      FROM accs
+      WHERE "sellerId" = ${user.id}
+      GROUP BY status
+    `;
 
-    // Đếm tổng số acc
-    const totalAccs = await prisma.acc.count({
-      where: {
-        sellerId: user.id,
-      },
+    // Calculate totals from aggregation
+    let totalAccs = 0;
+    let totalAccsOnSale = 0;
+    let totalViews = 0;
+
+    accStats.forEach((stat) => {
+      const count = Number(stat.count);
+      totalAccs += count;
+      totalViews += Number(stat.total_views);
+      if (stat.status === "APPROVED") {
+        totalAccsOnSale = count;
+      }
     });
 
     return successResponse({
@@ -42,13 +59,17 @@ export async function GET() {
       shopDesc: user.shopDesc,
       shopAvatar: user.shopAvatar,
       shopCover: user.shopCover,
+      featuredGames: user.featuredGames || [],
+      isVipShop: user.isVipShop,
+      vipShopEndTime: user.vipShopEndTime,
+      commissionRate: user.commissionRate,
       role: user.role,
       status: user.status,
       isVerified: user.isVerified,
       rating: user.rating,
       totalReviews: user.totalReviews,
       totalSales: user.totalSales,
-      totalViews: user.totalViews,
+      totalViews,
       totalAccs,
       totalAccsOnSale,
       createdAt: user.createdAt,
@@ -57,6 +78,9 @@ export async function GET() {
   } catch (error) {
     console.error("GET /api/v1/seller/shop error:", error);
     return errorResponse("Có lỗi xảy ra", 500);
+  } finally {
+    const duration = Date.now() - startTime;
+    console.log(`[PERF] GET /api/v1/seller/shop - ${duration}ms`);
   }
 }
 
@@ -71,6 +95,14 @@ export async function POST(request: NextRequest) {
       return errorResponse("Bạn cần đăng nhập", 401);
     }
 
+    // Check if user is banned
+    if (user.status === "BANNED") {
+      return errorResponse(
+        "Tài khoản này đã bị cấm tạo shop vĩnh viễn. Vui lòng liên hệ admin nếu đây là nhầm lẫn.",
+        403
+      );
+    }
+
     // Check if user already has a shop
     if (user.shopName) {
       return errorResponse(
@@ -80,7 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { shopName, shopDesc, shopAvatar } = body;
+    const { shopName, shopDesc, shopAvatar, featuredGames } = body;
 
     // Validate shopName
     if (!shopName || shopName.trim().length < 3) {
@@ -111,6 +143,10 @@ export async function POST(request: NextRequest) {
         shopSlug,
         shopDesc: shopDesc?.trim() || null,
         shopAvatar: shopAvatar || null,
+        featuredGames: Array.isArray(featuredGames)
+          ? featuredGames.slice(0, 3)
+          : [],
+        commissionRate: 5.0, // Default commission rate for new shops
         status: "PENDING", // Chờ admin duyệt
         updatedAt: new Date(),
       },
@@ -148,7 +184,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { shopDesc, shopAvatar, shopCover } = body;
+    const { shopDesc, shopAvatar, shopCover, featuredGames } = body;
 
     // Update shop info (shopName và shopSlug không được thay đổi)
     const updatedUser = await prisma.user.update({
@@ -157,6 +193,11 @@ export async function PUT(request: NextRequest) {
         ...(shopDesc !== undefined && { shopDesc: shopDesc?.trim() || null }),
         ...(shopAvatar !== undefined && { shopAvatar }),
         ...(shopCover !== undefined && { shopCover }),
+        ...(featuredGames !== undefined && {
+          featuredGames: Array.isArray(featuredGames)
+            ? featuredGames.slice(0, 3)
+            : [],
+        }),
         updatedAt: new Date(),
       },
     });
@@ -168,6 +209,7 @@ export async function PUT(request: NextRequest) {
       shopDesc: updatedUser.shopDesc,
       shopAvatar: updatedUser.shopAvatar,
       shopCover: updatedUser.shopCover,
+      featuredGames: updatedUser.featuredGames,
       status: updatedUser.status,
     });
   } catch (error) {

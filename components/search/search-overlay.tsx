@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import { Search, X, Clock, TrendingUp, Gamepad2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -171,7 +172,7 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                         onClick={onClose}
                         className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 hover:border-primary/50 transition-colors"
                       >
-                        <span className="text-2xl">{game.icon}</span>
+                        <span className="text-xl">{game.icon}</span>
                         <span className="text-sm font-medium">{game.name}</span>
                       </Link>
                     ))}
@@ -183,7 +184,7 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                         key={game.id}
                         className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 opacity-50 cursor-not-allowed relative"
                       >
-                        <span className="text-2xl">{game.icon}</span>
+                        <span className="text-xl">{game.icon}</span>
                         <span className="text-sm font-medium">{game.name}</span>
                         <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-500 font-bold">
                           Soon

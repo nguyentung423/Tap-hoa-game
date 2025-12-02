@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  Star,
   ShoppingBag,
   Package,
   CheckCircle2,
@@ -14,6 +13,11 @@ import {
   Clock,
   Filter,
   Loader2,
+  Star,
+  User,
+  Calendar,
+  Crown,
+  Shield,
 } from "lucide-react";
 
 import { Shop, Acc } from "@/types";
@@ -27,70 +31,136 @@ interface ShopDetailClientProps {
   shop: Shop;
 }
 
+interface Review {
+  id: string;
+  rating: number;
+  content: string | null;
+  buyerName: string;
+  createdAt: string;
+}
+
 export function ShopDetailClient({ shop }: ShopDetailClientProps) {
   const [selectedGame, setSelectedGame] = useState<string | undefined>();
   const [sortBy, setSortBy] = useState<"newest" | "price-asc" | "price-desc">(
     "newest"
   );
   const [allAccs, setAllAccs] = useState<Acc[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(true);
+  const [displayCount, setDisplayCount] = useState(6);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  // Fetch shop's accs from API
-  useEffect(() => {
-    async function fetchAccs() {
+  // Fetch shop's accs from API with pagination
+  const fetchAccs = async (pageNum: number = 1, append: boolean = false) => {
+    if (append) {
+      setIsLoadingMore(true);
+    } else {
       setIsLoading(true);
+    }
+
+    try {
+      const params = new URLSearchParams({
+        limit: "20",
+        page: pageNum.toString(),
+      });
+
+      if (selectedGame) {
+        params.set("game", selectedGame);
+      }
+
+      const res = await fetch(
+        `/api/v1/shops/${shop.slug}?${params.toString()}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data?.accs) {
+          // Transform API response to Acc type
+          const accs: Acc[] = data.data.accs.map((acc: any) => ({
+            id: acc.id,
+            title: acc.title,
+            slug: acc.slug,
+            description: acc.description,
+            price: acc.price,
+            originalPrice: acc.originalPrice,
+            thumbnail: acc.thumbnail,
+            images: acc.images || [],
+            gameSlug: acc.game?.slug || "",
+            gameName: acc.game?.name || "",
+            gameIcon: acc.game?.icon || "",
+            sellerId: acc.sellerId,
+            sellerName: shop.name,
+            sellerSlug: shop.slug,
+            sellerAvatar: shop.avatar,
+            isVerified: shop.isVerified,
+            attributes: acc.attributes || {},
+            status: acc.status?.toLowerCase() || "active",
+            isVip: acc.isVip,
+            views: acc.views,
+            createdAt: acc.createdAt,
+            updatedAt: acc.updatedAt,
+          }));
+
+          if (append) {
+            setAllAccs((prev) => [...prev, ...accs]);
+          } else {
+            setAllAccs(accs);
+          }
+
+          // Check if there's more data
+          const pagination = data.data.pagination;
+          setHasMore(pagination && pagination.page < pagination.totalPages);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching shop accs:", error);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  };
+
+  // Initial fetch
+  useEffect(() => {
+    setPage(1);
+    fetchAccs(1, false);
+  }, [shop.slug, selectedGame]);
+
+  // Load more function
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchAccs(nextPage, true);
+  };
+
+  // Fetch shop reviews
+  useEffect(() => {
+    async function fetchReviews() {
+      setIsLoadingReviews(true);
       try {
-        const res = await fetch(`/api/v1/shops/${shop.slug}?limit=100`);
+        const res = await fetch(`/api/v1/shops/${shop.slug}/reviews`);
         if (res.ok) {
           const data = await res.json();
-          if (data.success && data.data?.accs) {
-            // Transform API response to Acc type
-            const accs: Acc[] = data.data.accs.map((acc: any) => ({
-              id: acc.id,
-              title: acc.title,
-              slug: acc.slug,
-              description: acc.description,
-              price: acc.price,
-              originalPrice: acc.originalPrice,
-              thumbnail: acc.thumbnail,
-              images: acc.images || [],
-              gameSlug: acc.game?.slug || "",
-              gameName: acc.game?.name || "",
-              gameIcon: acc.game?.icon || "",
-              sellerId: acc.sellerId,
-              sellerName: shop.name,
-              sellerSlug: shop.slug,
-              sellerAvatar: shop.avatar,
-              isVerified: shop.isVerified,
-              attributes: acc.attributes || {},
-              status: acc.status?.toLowerCase() || "active",
-              isVip: acc.isVip,
-              views: acc.views,
-              createdAt: acc.createdAt,
-              updatedAt: acc.updatedAt,
-            }));
-            setAllAccs(accs);
+          if (data.success && data.reviews) {
+            setReviews(data.reviews);
           }
         }
       } catch (error) {
-        console.error("Error fetching shop accs:", error);
+        console.error("Error fetching reviews:", error);
       } finally {
-        setIsLoading(false);
+        setIsLoadingReviews(false);
       }
     }
-    fetchAccs();
-  }, [shop.slug, shop.name, shop.avatar, shop.isVerified]);
+    fetchReviews();
+  }, [shop.slug]);
 
-  // Filter and sort
+  // Filter and sort - client side for already loaded data
   const filteredAccs = useMemo(() => {
     let accs = [...allAccs];
 
-    // Filter by game
-    if (selectedGame) {
-      accs = accs.filter((acc) => acc.gameSlug === selectedGame);
-    }
-
-    // Sort
+    // Sort (game filter now handled by API)
     switch (sortBy) {
       case "price-asc":
         accs.sort((a, b) => a.price - b.price);
@@ -107,12 +177,25 @@ export function ShopDetailClient({ shop }: ShopDetailClientProps) {
     }
 
     return accs;
-  }, [allAccs, selectedGame, sortBy]);
+  }, [allAccs, sortBy]);
+
+  // Reset display count when filters change
+  useEffect(() => {
+    setDisplayCount(6);
+  }, [sortBy]);
 
   // Get unique games from this shop's accs
   const shopGames = useMemo(() => {
-    const gameSlugs = [...new Set(allAccs.map((acc) => acc.gameSlug))];
-    return GAMES.filter((g) => gameSlugs.includes(g.slug));
+    const gameSlugs = [...new Set(allAccs.map((acc) => acc.gameSlug))].filter(
+      (slug) => slug
+    );
+    const games = GAMES.filter((g) => gameSlugs.includes(g.slug));
+    console.log("Shop games:", {
+      gameSlugs,
+      foundGames: games,
+      allAccs: allAccs.length,
+    });
+    return games;
   }, [allAccs]);
 
   const formatNumber = (num: number) => {
@@ -142,11 +225,11 @@ export function ShopDetailClient({ shop }: ShopDetailClientProps) {
   return (
     <div className="min-h-screen">
       {/* Back button */}
-      <div className="container pt-4">
-        <Button variant="ghost" size="sm" asChild>
+      <div className="container py-2">
+        <Button variant="ghost" size="sm" asChild className="gap-2 -ml-2">
           <Link href="/">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Quay lại
+            <ArrowLeft className="w-4 h-4" />
+            <span>Quay lại</span>
           </Link>
         </Button>
       </div>
@@ -154,12 +237,13 @@ export function ShopDetailClient({ shop }: ShopDetailClientProps) {
       {/* Shop Header */}
       <section className="relative">
         {/* Cover Image */}
-        <div className="h-32 sm:h-48 md:h-56 relative bg-gradient-to-br from-primary/20 to-secondary/20">
+        <div className="h-24 sm:h-32 md:h-40 relative bg-gradient-to-br from-primary/20 to-secondary/20">
           {shop.coverImage && (
             <Image
               src={shop.coverImage}
               alt={shop.name}
               fill
+              sizes="100vw"
               className="object-cover opacity-70"
             />
           )}
@@ -173,13 +257,14 @@ export function ShopDetailClient({ shop }: ShopDetailClientProps) {
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="relative w-28 h-28 md:w-36 md:h-36 rounded-2xl overflow-hidden border-4 border-background bg-muted shadow-xl"
+              className="relative w-28 h-28 md:w-36 md:h-36 rounded-full overflow-hidden border-4 border-background bg-muted shadow-xl"
             >
               {shop.avatar ? (
                 <Image
                   src={shop.avatar}
                   alt={shop.name}
                   fill
+                  sizes="(max-width: 768px) 112px, 144px"
                   className="object-cover"
                 />
               ) : (
@@ -198,25 +283,51 @@ export function ShopDetailClient({ shop }: ShopDetailClientProps) {
                     {shop.name}
                   </h1>
 
-                  {/* Verified badge */}
-                  {shop.isVerified && (
-                    <div className="flex items-center gap-1.5 mt-1 text-green-500">
-                      <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                      <span className="text-sm font-medium">Đã xác minh</span>
-                    </div>
-                  )}
+                  {/* Badges */}
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    {/* Verified badge - Color matches shop tier */}
+                    {shop.isVerified && (
+                      <div
+                        className={cn(
+                          "flex items-center gap-1.5",
+                          shop.isStrategicPartner
+                            ? "text-cyan-500"
+                            : shop.isVipShop
+                            ? "text-yellow-500"
+                            : "text-green-500"
+                        )}
+                      >
+                        <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-sm font-medium">Đã xác minh</span>
+                      </div>
+                    )}
 
-                  {/* Rating */}
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="flex items-center gap-1">
-                      <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                      <span className="font-semibold">
-                        {shop.rating.toFixed(1)}
-                      </span>
-                    </div>
-                    <span className="text-muted-foreground">
-                      ({formatNumber(shop.totalReviews)} đánh giá)
-                    </span>
+                    {/* Strategic Partner badge - Cyan/Blue (same as card) */}
+                    {shop.isStrategicPartner && (
+                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-cyan-400 via-blue-400 to-sky-300 text-slate-900 shadow-xl">
+                        <Shield className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-sm font-bold tracking-wide">
+                          ĐỐI TÁC CHIẾN LƯỢC
+                        </span>
+                      </div>
+                    )}
+
+                    {/* VIP Shop badge - Yellow gradient (same as card) */}
+                    {!shop.isStrategicPartner && shop.isVipShop && (
+                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-600 text-yellow-950 shadow-lg">
+                        <Crown className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-sm font-bold">VIP</span>
+                      </div>
+                    )}
+
+                    {/* Developing Shop badge - Green gradient (same as card) */}
+                    {!shop.isStrategicPartner && !shop.isVipShop && (
+                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 text-green-950 shadow-md">
+                        <span className="text-sm font-bold">
+                          ĐANG PHÁT TRIỂN
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Description */}
@@ -268,9 +379,9 @@ export function ShopDetailClient({ shop }: ShopDetailClientProps) {
                     return game ? (
                       <span
                         key={gameSlug}
-                        className="px-3 py-1 text-sm rounded-full bg-primary/10 text-primary"
+                        className="px-3 py-1 text-sm rounded-full bg-primary/10 text-primary flex items-center gap-1.5"
                       >
-                        {game.icon} {game.name}
+                        <span className="text-xl">{game.icon}</span> {game.name}
                       </span>
                     ) : null;
                   })}
@@ -325,17 +436,126 @@ export function ShopDetailClient({ shop }: ShopDetailClientProps) {
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         ) : filteredAccs.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredAccs.map((acc) => (
-              <AccCard key={acc.id} acc={acc} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredAccs.slice(0, displayCount).map((acc, index) => (
+                <AccCard
+                  key={acc.id}
+                  acc={acc}
+                  index={index}
+                  priority={index < 6}
+                />
+              ))}
+            </div>
+
+            {/* Load More Button */}
+            {hasMore && (
+              <div className="flex justify-center mt-8">
+                <Button
+                  onClick={handleLoadMore}
+                  variant="outline"
+                  size="lg"
+                  className="px-8"
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Đang tải...
+                    </>
+                  ) : (
+                    `Xem thêm`
+                  )}
+                </Button>
+              </div>
+            )}
+          </>
         ) : (
           <div className="text-center py-16 text-muted-foreground">
             <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p>Shop chưa có acc nào{selectedGame ? " cho game này" : ""}</p>
           </div>
         )}
+      </section>
+
+      {/* Reviews Section */}
+      <section className="container py-8">
+        <div className="mb-6">
+          <h2 className="text-xl font-bold mb-2">Đánh giá từ khách hàng</h2>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1">
+              {shop.rating > 0 ? (
+                <>
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`w-5 h-5 ${
+                        i < Math.floor(shop.rating)
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "text-gray-300"
+                      }`}
+                    />
+                  ))}
+                  <span className="ml-2 text-lg font-semibold">
+                    {shop.rating.toFixed(1)}
+                  </span>
+                </>
+              ) : (
+                <span className="text-muted-foreground">Chưa có đánh giá</span>
+              )}
+            </div>
+            {shop.totalReviews > 0 && (
+              <span className="text-muted-foreground">
+                ({shop.totalReviews} đánh giá)
+              </span>
+            )}
+          </div>
+        </div>
+
+        {isLoadingReviews ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : reviews.length > 0 ? (
+          <div className="space-y-4">
+            {reviews.map((review) => (
+              <div
+                key={review.id}
+                className="p-4 rounded-lg bg-muted/50 border border-border"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <User className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-medium">{review.buyerName}</span>
+                      <div className="flex items-center gap-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-4 h-4 ${
+                              i < review.rating
+                                ? "fill-yellow-400 text-yellow-400"
+                                : "text-gray-300"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    {review.content && (
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {review.content}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Calendar className="w-3 h-3" />
+                      <span>{formatDate(review.createdAt)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>
     </div>
   );

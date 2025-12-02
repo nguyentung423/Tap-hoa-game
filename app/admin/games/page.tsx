@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import {
   Gamepad2,
   Plus,
@@ -276,8 +277,8 @@ export default function AdminGamesPage() {
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl bg-primary/10">
-                        {game.icon}
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-primary/10 overflow-hidden">
+                        <span className="text-xl">{game.icon}</span>
                       </div>
                       <div>
                         <p className="font-medium">{game.name}</p>

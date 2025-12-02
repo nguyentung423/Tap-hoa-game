@@ -90,10 +90,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
       return errorResponse("Tối đa 15 ảnh");
     }
 
-    // Update acc - reset to PENDING if was REJECTED
-    const newStatus =
-      existingAcc.status === "REJECTED" ? "PENDING" : existingAcc.status;
-
+    // Update acc - keep status APPROVED (seller can always edit)
     const acc = await prisma.acc.update({
       where: { id },
       data: {
@@ -105,8 +102,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
         ...(originalPrice !== undefined && { originalPrice }),
         ...(images && { images, thumbnail: images[0] }),
         ...(attributes && { attributes }),
-        status: newStatus,
-        adminNote: newStatus === "PENDING" ? null : existingAcc.adminNote,
+        // Status stays APPROVED - only admin can change to SOLD/REJECTED
         updatedAt: new Date(),
       },
       include: {

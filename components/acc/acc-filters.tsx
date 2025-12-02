@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { SlidersHorizontal, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -76,13 +77,13 @@ export function AccFilters({
               key={game.slug}
               onClick={() => handleGameChange(game.slug as GameSlug)}
               className={cn(
-                "px-3 py-1.5 rounded-full text-sm transition-colors flex items-center gap-1",
+                "px-3 py-1.5 rounded-full text-sm whitespace-nowrap flex items-center gap-1 transition-colors",
                 filters.gameSlug === game.slug
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted hover:bg-muted/80"
               )}
             >
-              <span>{game.icon}</span>
+              <span className="text-base">{game.icon}</span>
               <span>{game.name.split(" ").slice(0, 2).join(" ")}</span>
             </button>
           ))}
@@ -94,7 +95,7 @@ export function AccFilters({
                 key={game.slug}
                 className="px-3 py-1.5 rounded-full text-sm bg-muted/50 flex items-center gap-1 opacity-50 cursor-not-allowed"
               >
-                <span>{game.icon}</span>
+                <span className="text-base">{game.icon}</span>
                 <span>{game.name.split(" ").slice(0, 2).join(" ")}</span>
                 <span className="px-1 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-500 font-bold ml-1">
                   Soon

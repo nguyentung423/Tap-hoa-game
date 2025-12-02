@@ -2,6 +2,10 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { successResponse, errorResponse } from "@/lib/api/helpers";
 
+// Disable caching for this route
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /**
  * GET /api/v1/accs
  * Lấy danh sách acc công khai (đã được duyệt)
@@ -82,36 +86,53 @@ export async function GET(request: NextRequest) {
     // VIP accs first
     const orderByArray = [{ isVip: "desc" as const }, orderBy];
 
-    // Get accs with pagination - sequential queries for PgBouncer
-    const accs = await prisma.acc.findMany({
-      where,
-      include: {
-        game: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            icon: true,
+    // Parallel queries for better performance
+    const [accs, total] = await Promise.all([
+      prisma.acc.findMany({
+        where,
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          description: true,
+          price: true,
+          originalPrice: true,
+          gameId: true,
+          images: true,
+          thumbnail: true,
+          attributes: true,
+          status: true,
+          isVip: true,
+          isHot: true,
+          views: true,
+          createdAt: true,
+          updatedAt: true,
+          game: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              icon: true,
+            },
+          },
+          seller: {
+            select: {
+              id: true,
+              shopName: true,
+              shopSlug: true,
+              shopAvatar: true,
+              isVerified: true,
+              rating: true,
+              totalSales: true,
+            },
           },
         },
-        seller: {
-          select: {
-            id: true,
-            shopName: true,
-            shopSlug: true,
-            shopAvatar: true,
-            isVerified: true,
-            rating: true,
-            totalSales: true,
-          },
-        },
-      },
-      orderBy: orderByArray,
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-
-    const total = await prisma.acc.count({ where });
+        orderBy: orderByArray,
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.acc.count({ where }),
+    ]);
 
     return successResponse({
       items: accs,

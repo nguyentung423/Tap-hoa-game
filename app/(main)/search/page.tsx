@@ -2,6 +2,7 @@
 
 import { Search } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { AccGrid } from "@/components/acc";
 import { GAMES } from "@/types/game";
 
@@ -31,7 +32,7 @@ export default function SearchPage() {
             href={`/acc?game=${game.id}&search=${query}`}
             className="flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border hover:border-primary whitespace-nowrap"
           >
-            <span>{game.icon}</span>
+            <span className="text-xl">{game.icon}</span>
             <span className="text-sm">{game.name}</span>
           </a>
         ))}
