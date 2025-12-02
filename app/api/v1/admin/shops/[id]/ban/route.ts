@@ -13,13 +13,13 @@ import {
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check admin auth
     await requireAdminAuth();
 
-    const { id } = params;
+    const { id } = await params;
 
     // Find the user/shop
     const user = await prisma.user.findUnique({

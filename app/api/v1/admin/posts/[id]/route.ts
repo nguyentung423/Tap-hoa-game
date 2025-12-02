@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 // PATCH /api/v1/admin/posts/[id] - Approve or reject post
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -20,8 +20,9 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
 
+    const { id } = await params;
     const post = await prisma.post.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         status: action === "approve" ? "PUBLISHED" : "REJECTED",
         publishedAt: action === "approve" ? new Date() : null,
@@ -46,7 +47,7 @@ export async function PATCH(
 // DELETE /api/v1/admin/posts/[id] - Delete post
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -54,8 +55,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
     await prisma.post.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({

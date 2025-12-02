@@ -4,12 +4,13 @@ import { prisma } from "@/lib/db/prisma";
 // GET /api/v1/posts/[slug] - Get single post and increment views
 export async function GET(
   request: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
+    const { slug } = await params;
     const post = await prisma.post.findUnique({
       where: {
-        slug: params.slug,
+        slug,
         status: "PUBLISHED",
       },
     });

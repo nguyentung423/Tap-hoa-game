@@ -3,10 +3,10 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const { slug } = params;
+    const { slug } = await params;
 
     // First find the shop by slug
     const shop = await prisma.user.findFirst({
