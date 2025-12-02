@@ -44,6 +44,8 @@ export async function getCurrentUser() {
       role: true,
       status: true,
       isVerified: true,
+      isVipShop: true,
+      isStrategicPartner: true,
       rating: true,
       totalReviews: true,
       totalSales: true,

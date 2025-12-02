@@ -122,6 +122,8 @@ export async function GET(request: NextRequest) {
               shopSlug: true,
               shopAvatar: true,
               isVerified: true,
+              isVipShop: true,
+              isStrategicPartner: true,
               rating: true,
               totalSales: true,
             },

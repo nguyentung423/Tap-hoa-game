@@ -98,6 +98,8 @@ export async function HomeServer() {
             shopAvatar: true,
             rating: true,
             isVerified: true,
+            isVipShop: true,
+            isStrategicPartner: true,
           },
         },
       },

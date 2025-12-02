@@ -59,6 +59,8 @@ export async function GET(request: NextRequest) {
               shopSlug: true,
               status: true,
               isVerified: true,
+              isVipShop: true,
+              isStrategicPartner: true,
             },
           },
         },

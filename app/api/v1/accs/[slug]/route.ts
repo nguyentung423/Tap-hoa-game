@@ -32,6 +32,8 @@ export async function GET(request: NextRequest, { params }: Params) {
             shopAvatar: true,
             shopDesc: true,
             isVerified: true,
+            isVipShop: true,
+            isStrategicPartner: true,
             rating: true,
             totalReviews: true,
             totalSales: true,
