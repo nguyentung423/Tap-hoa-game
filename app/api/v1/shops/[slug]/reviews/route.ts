@@ -11,7 +11,7 @@ export async function GET(
     // First find the shop by slug
     const shop = await prisma.user.findFirst({
       where: {
-        slug: slug,
+        shopSlug: slug,
         role: "SELLER",
       },
       select: {

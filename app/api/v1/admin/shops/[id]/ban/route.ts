@@ -38,7 +38,7 @@ export async function POST(
         status: "BANNED",
         shopName: null,
         shopSlug: null,
-        shopDescription: null,
+        shopDesc: null,
         shopAvatar: null,
         isVipShop: false,
         vipShopEndTime: null,
