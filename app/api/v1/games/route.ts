@@ -1,8 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { successResponse, errorResponse } from "@/lib/api/helpers";
 
-// Cache games for 60 seconds (they don't change often)
-export const dynamic = "force-dynamic";
+// ISR: Cache for 60 seconds (games don't change often)
 export const revalidate = 60;
 
 /**

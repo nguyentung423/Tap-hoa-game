@@ -2,6 +2,9 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { successResponse, errorResponse } from "@/lib/api/helpers";
 
+// ISR: Cache for 60 seconds
+export const revalidate = 60;
+
 /**
  * GET /api/v1/shops
  * Lấy danh sách shops công khai (đã được duyệt)

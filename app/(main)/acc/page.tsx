@@ -93,8 +93,23 @@ export default function AccListPage() {
         if (res.ok) {
           const data = await res.json();
           const items = data.data?.items || data.items || [];
+          const sellers = data.data?.sellers || data.sellers || {};
+          const games = data.data?.games || data.games || {};
+
           console.log("Fetched accs:", items.length, "items");
-          setAccs(items.map(transformApiAcc));
+
+          // Denormalize on client: attach seller and game data to each acc
+          const denormalizedAccs = items.map((acc: any) => {
+            const seller = sellers[acc.sellerId];
+            const game = games[acc.gameId];
+            return transformApiAcc({
+              ...acc,
+              seller,
+              game,
+            });
+          });
+
+          setAccs(denormalizedAccs);
         } else {
           console.error("Accs API error:", res.status, await res.text());
           setAccs([]);

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
+// ISR: Cache for 60 seconds
+export const revalidate = 60;
+
 // GET /api/v1/posts - Public endpoint for published posts
 export async function GET(request: Request) {
   try {
