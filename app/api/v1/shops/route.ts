@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { successResponse, errorResponse } from "@/lib/api/helpers";
 
-// ISR: Cache for 60 seconds
-export const revalidate = 60;
+// Force dynamic for query params
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/v1/shops

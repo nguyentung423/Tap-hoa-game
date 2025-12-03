@@ -1,17 +1,62 @@
-"use client";
-
 import { Search } from "lucide-react";
-import { useSearchParams } from "next/navigation";
-import Image from "next/image";
 import { AccGrid } from "@/components/acc";
 import { GAMES } from "@/types/game";
+import { prisma } from "@/lib/db/prisma";
 
-export default function SearchPage() {
-  const searchParams = useSearchParams();
-  const query = searchParams.get("q") || "";
+export const revalidate = 60;
 
-  // TODO: Fetch search results
-  const accs: any[] = [];
+interface SearchPageProps {
+  searchParams: Promise<{ q?: string }>;
+}
+
+export default async function SearchPage({ searchParams }: SearchPageProps) {
+  const params = await searchParams;
+  const query = params.q || "";
+
+  // Fetch search results if query exists
+  let accs: any[] = [];
+  if (query.trim()) {
+    const results = await prisma.acc.findMany({
+      where: {
+        status: "APPROVED",
+        OR: [
+          { title: { contains: query, mode: "insensitive" } },
+          { description: { contains: query, mode: "insensitive" } },
+          { game: { name: { contains: query, mode: "insensitive" } } },
+        ],
+      },
+      take: 20,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        price: true,
+        images: true,
+        status: true,
+        createdAt: true,
+        game: {
+          select: {
+            name: true,
+          },
+        },
+        seller: {
+          select: {
+            id: true,
+            shopName: true,
+            shopSlug: true,
+            isVipShop: true,
+          },
+        },
+      },
+    });
+
+    accs = results.map((acc) => ({
+      ...acc,
+      gameName: acc.game?.name,
+      createdAt: acc.createdAt.toISOString(),
+    }));
+  }
 
   return (
     <div className="container py-6">
@@ -20,7 +65,9 @@ export default function SearchPage() {
           Kết quả tìm kiếm: &quot;{query}&quot;
         </h1>
         <p className="text-muted-foreground">
-          Tìm thấy các tài khoản phù hợp với từ khóa của bạn
+          {accs.length > 0
+            ? `Tìm thấy ${accs.length} tài khoản phù hợp`
+            : "Tìm thấy các tài khoản phù hợp với từ khóa của bạn"}
         </p>
       </div>
 
@@ -44,7 +91,11 @@ export default function SearchPage() {
       ) : (
         <div className="text-center py-12">
           <Search className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Không tìm thấy kết quả nào</p>
+          <p className="text-muted-foreground">
+            {query.trim()
+              ? "Không tìm thấy kết quả nào"
+              : "Nhập từ khóa để tìm kiếm"}
+          </p>
         </div>
       )}
     </div>

@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import PostDetailClient from "./client";
 
+// ISR: Revalidate every 60 seconds
+export const revalidate = 60;
+
 interface Props {
   params: Promise<{ slug: string }>;
 }

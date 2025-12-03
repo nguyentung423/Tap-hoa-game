@@ -16,7 +16,7 @@ const inter = Inter({
 const orbitron = Orbitron({
   subsets: ["latin"],
   variable: "--font-orbitron",
-  weight: ["400", "500", "600", "700", "800", "900"],
+  weight: ["700"], // Only bold for logo
   display: "swap",
   preload: false,
 });
