@@ -77,7 +77,7 @@ export function ShopDetailClient({
         sellerSlug: shop.slug,
         sellerAvatar: shop.avatar,
         isVerified: shop.isVerified,
-        attributes: {},
+        attributes: [],
         status: "approved",
         isVip: acc.isVip,
         isHot: acc.isHot,
@@ -302,11 +302,7 @@ export function ShopDetailClient({
         <div className="container relative">
           <div className="flex flex-col md:flex-row gap-6 -mt-16 md:-mt-20">
             {/* Avatar */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="relative w-28 h-28 md:w-36 md:h-36 rounded-full overflow-hidden border-4 border-background bg-muted shadow-xl"
-            >
+            <div className="relative w-28 h-28 md:w-36 md:h-36 rounded-full overflow-hidden border-4 border-background bg-muted shadow-xl animate-in fade-in zoom-in-95 duration-500">
               {shop.avatar ? (
                 <Image
                   src={shop.avatar}
@@ -320,7 +316,7 @@ export function ShopDetailClient({
                   {shop.name.charAt(0)}
                 </div>
               )}
-            </motion.div>
+            </div>
 
             {/* Info */}
             <div className="flex-1 pt-2">
