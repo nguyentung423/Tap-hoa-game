@@ -8,9 +8,6 @@ import {
   getCurrentUser,
 } from "@/lib/api/helpers";
 
-// ISR: Cache for 60 seconds
-export const revalidate = 60;
-
 interface Params {
   params: Promise<{ slug: string }>;
 }

@@ -2,9 +2,6 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { successResponse, errorResponse } from "@/lib/api/helpers";
 
-// Force dynamic for query params
-export const dynamic = "force-dynamic";
-
 /**
  * GET /api/v1/shops
  * Lấy danh sách shops công khai (đã được duyệt)

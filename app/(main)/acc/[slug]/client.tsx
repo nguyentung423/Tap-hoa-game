@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { ChevronLeft, ChevronRight, Eye, CheckCircle2, X } from "lucide-react";
 import { Acc } from "@/types";
@@ -39,9 +40,10 @@ export function AccDetailClient({ acc }: Props) {
           {/* Image Gallery */}
           <div className="space-y-4">
             {/* Main Image */}
-            <div
-              className="relative aspect-video rounded-2xl overflow-hidden bg-muted cursor-zoom-in transition-transform hover:scale-[1.01]"
+            <motion.div
+              className="relative aspect-video rounded-2xl overflow-hidden bg-muted cursor-zoom-in"
               onClick={() => setShowLightbox(true)}
+              whileHover={{ scale: 1.01 }}
             >
               <Image
                 src={acc.images[currentImage] || acc.thumbnail}
@@ -93,7 +95,7 @@ export function AccDetailClient({ acc }: Props) {
                   </button>
                 </>
               )}
-            </div>
+            </motion.div>
 
             {/* Thumbnails */}
             {acc.images.length > 1 && (
@@ -241,119 +243,124 @@ export function AccDetailClient({ acc }: Props) {
       </div>
 
       {/* Lightbox */}
-      {showLightbox && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center animate-in fade-in duration-200"
-          onClick={() => setShowLightbox(false)}
-        >
-          {/* Close button */}
-          <button
+      <AnimatePresence>
+        {showLightbox && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center"
             onClick={() => setShowLightbox(false)}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition z-10"
           >
-            <X className="w-6 h-6" />
-          </button>
-
-          {/* Image counter */}
-          <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-white/10 text-white text-sm font-medium">
-            {currentImage + 1} / {acc.images.length}
-          </div>
-
-          {/* Navigation arrows */}
-          {acc.images.length > 1 && (
-            <>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCurrentImage((prev) =>
-                    prev === 0 ? acc.images.length - 1 : prev - 1
-                  );
-                }}
-                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition z-10"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCurrentImage((prev) =>
-                    prev === acc.images.length - 1 ? 0 : prev + 1
-                  );
-                }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition z-10"
-              >
-                <ChevronRight className="w-6 h-6" />
-              </button>
-            </>
-          )}
-
-          {/* Main image */}
-          <div className="absolute inset-0 flex items-center justify-center p-4">
-            <TransformWrapper
-              initialScale={1}
-              minScale={1}
-              maxScale={3}
-              doubleClick={{ disabled: false, mode: "zoomIn" }}
-              wheel={{ step: 0.1 }}
-              pinch={{ step: 5 }}
-              panning={{ disabled: false }}
-              limitToBounds={true}
-              centerOnInit={true}
+            {/* Close button */}
+            <button
+              onClick={() => setShowLightbox(false)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition z-10"
             >
-              <TransformComponent
-                wrapperStyle={{
-                  width: "100%",
-                  height: "100%",
-                }}
-                contentStyle={{
-                  width: "100%",
-                  height: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Image
-                  src={acc.images[currentImage] || acc.thumbnail}
-                  alt={acc.title}
-                  width={1200}
-                  height={800}
-                  className="max-w-[90vw] max-h-[85vh] object-contain"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </TransformComponent>
-            </TransformWrapper>
-          </div>
+              <X className="w-6 h-6" />
+            </button>
 
-          {/* Thumbnails at bottom */}
-          {acc.images.length > 1 && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 max-w-[90vw] overflow-x-auto px-4 py-2 rounded-xl bg-black/50">
-              {acc.images.map((img, idx) => (
+            {/* Image counter */}
+            <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-white/10 text-white text-sm font-medium">
+              {currentImage + 1} / {acc.images.length}
+            </div>
+
+            {/* Navigation arrows */}
+            {acc.images.length > 1 && (
+              <>
                 <button
-                  key={idx}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setCurrentImage(idx);
+                    setCurrentImage((prev) =>
+                      prev === 0 ? acc.images.length - 1 : prev - 1
+                    );
                   }}
-                  className={`relative w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 transition ${
-                    currentImage === idx
-                      ? "border-primary"
-                      : "border-transparent opacity-60 hover:opacity-100"
-                  }`}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition z-10"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImage((prev) =>
+                      prev === acc.images.length - 1 ? 0 : prev + 1
+                    );
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition z-10"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </>
+            )}
+
+            {/* Main image */}
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+              <TransformWrapper
+                initialScale={1}
+                minScale={1}
+                maxScale={3}
+                doubleClick={{ disabled: false, mode: "zoomIn" }}
+                wheel={{ step: 0.1 }}
+                pinch={{ step: 5 }}
+                panning={{ disabled: false }}
+                limitToBounds={true}
+                centerOnInit={true}
+              >
+                <TransformComponent
+                  wrapperStyle={{
+                    width: "100%",
+                    height: "100%",
+                  }}
+                  contentStyle={{
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
                   <Image
-                    src={img}
-                    alt={`${acc.title} - ${idx + 1}`}
-                    fill
-                    sizes="56px"
-                    className="object-cover"
+                    src={acc.images[currentImage] || acc.thumbnail}
+                    alt={acc.title}
+                    width={1200}
+                    height={800}
+                    className="max-w-[90vw] max-h-[85vh] object-contain"
+                    onClick={(e) => e.stopPropagation()}
                   />
-                </button>
-              ))}
+                </TransformComponent>
+              </TransformWrapper>
             </div>
-          )}
-        </div>
-      )}
+
+            {/* Thumbnails at bottom */}
+            {acc.images.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 max-w-[90vw] overflow-x-auto px-4 py-2 rounded-xl bg-black/50">
+                {acc.images.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentImage(idx);
+                    }}
+                    className={`relative w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 transition ${
+                      currentImage === idx
+                        ? "border-primary"
+                        : "border-transparent opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    <Image
+                      src={img}
+                      alt={`${acc.title} - ${idx + 1}`}
+                      fill
+                      sizes="56px"
+                      className="object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

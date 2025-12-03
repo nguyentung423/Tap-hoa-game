@@ -27,22 +27,11 @@ const nextConfig: NextConfig = {
     imageSizes: [16, 32, 48, 64, 96], // Icon sizes
   },
   experimental: {
-    optimizePackageImports: [
-      "lucide-react",
-      "@radix-ui/react-icons",
-      "date-fns",
-      "framer-motion",
-    ],
+    optimizePackageImports: ["lucide-react"],
   },
   // Modern browsers only - remove legacy polyfills
   compiler: {
     removeConsole: process.env.NODE_ENV === "production",
-  },
-  // Modularize imports for better tree-shaking
-  modularizeImports: {
-    "date-fns": {
-      transform: "date-fns/{{member}}",
-    },
   },
   // Enable SWC minification for better performance
   swcMinify: true,

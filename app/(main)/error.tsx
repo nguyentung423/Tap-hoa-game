@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { motion } from "framer-motion";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -20,10 +21,19 @@ export default function Error({ error, reset }: ErrorProps) {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="text-center max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-destructive/10 flex items-center justify-center animate-in zoom-in duration-300 delay-100">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center max-w-md"
+      >
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.1, type: "spring", bounce: 0.5 }}
+          className="w-20 h-20 mx-auto mb-6 rounded-full bg-destructive/10 flex items-center justify-center"
+        >
           <AlertTriangle className="w-10 h-10 text-destructive" />
-        </div>
+        </motion.div>
 
         <h1 className="text-2xl font-bold mb-2">Đã xảy ra lỗi!</h1>
         <p className="text-muted-foreground mb-6">
@@ -52,7 +62,12 @@ export default function Error({ error, reset }: ErrorProps) {
         </div>
 
         {process.env.NODE_ENV === "development" && error.message && (
-          <div className="mt-6 p-4 rounded-lg bg-card border text-left overflow-auto animate-in fade-in duration-500 delay-500">
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            transition={{ delay: 0.5 }}
+            className="mt-6 p-4 rounded-lg bg-card border text-left overflow-auto"
+          >
             <p className="text-xs font-mono text-destructive">
               {error.message}
             </p>
@@ -61,9 +76,9 @@ export default function Error({ error, reset }: ErrorProps) {
                 Error ID: {error.digest}
               </p>
             )}
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }

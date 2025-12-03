@@ -5,9 +5,6 @@ import { prisma } from "@/lib/db/prisma";
 import { siteConfig } from "@/config/site";
 import { GameSlug } from "@/types/game";
 
-// ISR: Revalidate every 30 seconds
-export const revalidate = 30;
-
 interface Props {
   params: Promise<{ slug: string }>;
 }

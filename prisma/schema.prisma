@@ -62,10 +62,11 @@ model User {
   reviews       Review[]    @relation("ReviewTarget")
   
   @@map("users")
-  @@index([email]) // Login lookup
-  @@index([shopSlug]) // Shop page lookup
-  @@index([status, role, isVipShop, rating]) // Shop listing with filters
-  @@index([isVerified, totalSales]) // Verified shops sorting
+  @@index([email])
+  @@index([shopSlug])
+  @@index([status, role])
+  @@index([isVerified])
+  @@index([isVipShop, rating])
 }
 
 enum UserRole {
@@ -156,12 +157,15 @@ model Acc {
   // Admin note (for rejection reason)
   adminNote     String?
   
-  // Optimized indexes - removed duplicates, kept composite covering indexes
-  @@index([status, createdAt(sort: Desc)]) // Most common query: approved accs sorted by date
-  @@index([status, gameId, createdAt(sort: Desc)]) // Filter by game
-  @@index([status, sellerId, createdAt(sort: Desc)]) // Filter by seller
-  @@index([isVip, createdAt(sort: Desc)]) // VIP accs sorting
-  @@index([price]) // Price range queries
+  @@index([gameId])
+  @@index([sellerId])
+  @@index([status])
+  @@index([price])
+  @@index([createdAt])
+  @@index([isVip, createdAt])
+  @@index([status, gameId])
+  @@index([status, sellerId])
+  @@index([status, createdAt(sort: Desc)])
   @@map("accs")
 }
 

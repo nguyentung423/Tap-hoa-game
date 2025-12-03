@@ -2,9 +2,9 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { successResponse, errorResponse } from "@/lib/api/helpers";
 
-// Force dynamic for query params, but cache responses on CDN
+// Disable caching for this route
 export const dynamic = "force-dynamic";
-export const fetchCache = "default-cache";
+export const revalidate = 0;
 
 /**
  * GET /api/v1/accs
@@ -98,7 +98,6 @@ export async function GET(request: NextRequest) {
           price: true,
           originalPrice: true,
           gameId: true,
-          sellerId: true, // Just ID for normalization
           images: true,
           thumbnail: true,
           attributes: true,
@@ -137,43 +136,8 @@ export async function GET(request: NextRequest) {
       prisma.acc.count({ where }),
     ]);
 
-    // Normalize data: Extract unique sellers and games to avoid duplication
-    const sellersMap = new Map();
-    const gamesMap = new Map();
-
-    const normalizedAccs = accs.map((acc) => {
-      if (acc.seller) {
-        sellersMap.set(acc.seller.id, acc.seller);
-      }
-      if (acc.game) {
-        gamesMap.set(acc.game.id, acc.game);
-      }
-
-      return {
-        id: acc.id,
-        title: acc.title,
-        slug: acc.slug,
-        description: acc.description,
-        price: acc.price,
-        originalPrice: acc.originalPrice,
-        gameId: acc.gameId,
-        sellerId: acc.sellerId,
-        images: acc.images,
-        thumbnail: acc.thumbnail,
-        attributes: acc.attributes,
-        status: acc.status,
-        isVip: acc.isVip,
-        isHot: acc.isHot,
-        views: acc.views,
-        createdAt: acc.createdAt,
-        updatedAt: acc.updatedAt,
-      };
-    });
-
     return successResponse({
-      items: normalizedAccs,
-      sellers: Object.fromEntries(sellersMap),
-      games: Object.fromEntries(gamesMap),
+      items: accs,
       pagination: {
         page,
         limit,

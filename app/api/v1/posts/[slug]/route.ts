@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
-// ISR: Cache for 30 seconds (shorter due to view counting)
-export const revalidate = 30;
-
 // GET /api/v1/posts/[slug] - Get single post and increment views
 export async function GET(
   request: Request,
