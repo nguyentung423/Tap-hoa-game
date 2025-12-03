@@ -2,78 +2,28 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import {
-  Sparkles,
-  ChevronRight,
-  Shield,
-  Users,
-  MessageCircle,
-  Store,
-  TrendingUp,
-  Crown,
-} from "lucide-react";
+import dynamic from "next/dynamic";
+import { Sparkles, Shield, MessageCircle, Users, Store } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ShopCard } from "@/components/shop/shop-card";
 import { SafetyPolicyButton } from "@/components/acc/safety-policy-button";
 import { siteConfig } from "@/config/site";
 
-// Game quick filter chips
-function GameChips({
-  selected,
-  onSelect,
-  games,
-}: {
-  selected?: string;
-  onSelect: (slug?: string) => void;
-  games: any[];
-}) {
-  const quickGames = [
-    {
-      slug: undefined,
-      label: "Tất cả",
-      icon: "🎮",
-      isActive: true,
-    },
-    ...games.map((g: any) => ({
-      slug: g.slug,
-      label: g.name.split(" ").slice(0, 2).join(" "),
-      icon: g.icon,
-      isActive: g.isActive ?? false,
-    })),
-  ];
+// Lazy load shop sections - they're below the fold
+const StrategicPartnerSection = dynamic(
+  () => import("./shop-sections").then((mod) => mod.StrategicPartnerSection),
+  { ssr: true }
+);
+const VipShopsSection = dynamic(
+  () => import("./shop-sections").then((mod) => mod.VipShopsSection),
+  { ssr: true }
+);
+const DevelopingShopsSection = dynamic(
+  () => import("./shop-sections").then((mod) => mod.DevelopingShopsSection),
+  { ssr: true }
+);
 
-  return (
-    <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-2">
-      {quickGames.map((game) => (
-        <button
-          key={game.slug || "all"}
-          onClick={() => game.isActive && onSelect(game.slug)}
-          disabled={!game.isActive}
-          className={cn(
-            "relative flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 bg-muted/30 text-sm font-medium transition-all shrink-0",
-            game.isActive && "hover:bg-muted cursor-pointer",
-            !game.isActive && "opacity-60 cursor-not-allowed",
-            selected === game.slug &&
-              game.isActive &&
-              "bg-primary text-primary-foreground border-primary"
-          )}
-        >
-          <span className="text-xl">{game.icon}</span>
-          <span>{game.label}</span>
-          {!game.isActive && (
-            <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-500 font-bold">
-              Sắp ra mắt
-            </span>
-          )}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// Feature card - removed framer-motion for better performance
+// Feature card - inline for above-the-fold rendering
 function FeatureCard({
   icon: Icon,
   title,
@@ -243,125 +193,22 @@ export function HomeClient({
         </div>
       </section>
 
-      {/* Strategic Partner Shops */}
-      {strategicPartnerShops.length > 0 && (
-        <section id="shops" className="container py-12">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-cyan-400/10">
-                <Shield className="w-6 h-6 text-cyan-500" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold">Đối Tác Chiến Lược</h2>
-                <p className="text-sm text-muted-foreground">
-                  Các shop đối tác lớn với uy tín được kiểm chứng
-                </p>
-              </div>
-            </div>
-          </div>
+      {/* Strategic Partner Shops - Lazy loaded */}
+      <StrategicPartnerSection shops={strategicPartnerShops} />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {strategicPartnerShops.map((shop: any, index: number) => (
-              <ShopCard
-                key={shop.id}
-                shop={shop}
-                variant="strategic"
-                priority={index < 4}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Top VIP Shops - Lazy loaded */}
+      <VipShopsSection shops={topShops} />
 
-      {/* Top VIP Shops */}
-      <section className="container py-12">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-yellow-500/10">
-              <Crown className="w-6 h-6 text-yellow-500" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">Shop VIP</h2>
-              <p className="text-sm text-muted-foreground">
-                Top shop VIP uy tín nhất
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {topShops.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {topShops.map((shop: any) => (
-              <ShopCard key={shop.id} shop={shop} priority={false} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12 text-muted-foreground">
-            <p>Chưa có shop VIP nào</p>
-          </div>
-        )}
-      </section>
-
-      {/* Developing Shops */}
-      <section className="container py-12">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-green-500/10">
-              <TrendingUp className="w-6 h-6 text-green-500" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">Shop Đang Phát Triển</h2>
-              <p className="text-sm text-muted-foreground">
-                Các shop mới và đang phát triển với nhiều lựa chọn
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Game filter */}
-        <div className="mb-6">
-          <GameChips
-            selected={selectedGame}
-            onSelect={setSelectedGame}
-            games={initialGames}
-          />
-        </div>
-
-        {/* Shop grid */}
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredDevelopingShops.map((shop: any) => (
-              <ShopCard
-                key={shop.id}
-                shop={shop}
-                variant="developing"
-                priority={false}
-              />
-            ))}
-          </div>
-
-          {filteredDevelopingShops.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              Chưa có shop đang phát triển nào
-            </div>
-          )}
-
-          {/* Show more button */}
-          {!showAllShops && developingShops.length > 12 && (
-            <div className="text-center mt-8">
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => setShowAllShops(true)}
-                className="gap-2"
-              >
-                Xem tất cả {developingShops.length} shop
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
-        </>
-      </section>
+      {/* Developing Shops - Lazy loaded */}
+      <DevelopingShopsSection
+        shops={filteredDevelopingShops}
+        games={initialGames}
+        selectedGame={selectedGame}
+        onSelectGame={setSelectedGame}
+        showAll={showAllShops}
+        onShowAll={() => setShowAllShops(true)}
+        totalCount={developingShops.length}
+      />
 
       {/* CTA */}
       <section className="container py-12 mb-12">

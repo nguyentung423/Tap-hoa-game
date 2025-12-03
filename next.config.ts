@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
     imageSizes: [16, 32, 48, 64, 96], // Icon sizes
   },
   experimental: {
-    optimizePackageImports: ["lucide-react"],
+    optimizePackageImports: ["lucide-react", "date-fns"],
   },
   // Modern browsers only - remove legacy polyfills
   compiler: {

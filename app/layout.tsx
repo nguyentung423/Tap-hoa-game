@@ -16,7 +16,7 @@ const inter = Inter({
 const orbitron = Orbitron({
   subsets: ["latin"],
   variable: "--font-orbitron",
-  weight: ["400", "500", "600", "700", "800", "900"],
+  weight: ["700"], // Only bold weight used for logo
   display: "swap",
   preload: false,
 });
@@ -103,6 +103,12 @@ export default function RootLayout({
     <html lang="vi" suppressHydrationWarning>
       <head>
         {/* Preconnect to critical origins */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
       </head>
