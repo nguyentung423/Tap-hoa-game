@@ -39,7 +39,10 @@ interface Review {
   createdAt: string;
 }
 
-export function ShopDetailClient({ shop, initialAccs = [] }: ShopDetailClientProps) {
+export function ShopDetailClient({
+  shop,
+  initialAccs = [],
+}: ShopDetailClientProps) {
   const [selectedGame, setSelectedGame] = useState<string | undefined>();
   const [sortBy, setSortBy] = useState<"newest" | "price-asc" | "price-desc">(
     "newest"
@@ -65,6 +68,7 @@ export function ShopDetailClient({ shop, initialAccs = [] }: ShopDetailClientPro
         originalPrice: acc.originalPrice,
         thumbnail: acc.thumbnail,
         images: acc.images || [],
+        gameId: acc.game?.id || "",
         gameSlug: acc.game?.slug || "",
         gameName: acc.game?.name || "",
         gameIcon: acc.game?.icon || "",
@@ -79,6 +83,18 @@ export function ShopDetailClient({ shop, initialAccs = [] }: ShopDetailClientPro
         isHot: acc.isHot,
         views: acc.views,
         createdAt: acc.createdAt,
+        updatedAt: acc.createdAt,
+        shop: {
+          id: shop.id,
+          name: shop.name,
+          slug: shop.slug,
+          avatar: shop.avatar,
+          isVerified: shop.isVerified,
+          isVipShop: shop.isVipShop,
+          isStrategicPartner: shop.isStrategicPartner,
+          rating: shop.rating,
+          totalSales: shop.totalSales,
+        },
       }));
       setAllAccs(transformedAccs);
       setHasMore(transformedAccs.length >= 20);

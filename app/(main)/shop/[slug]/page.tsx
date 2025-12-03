@@ -74,7 +74,7 @@ export async function generateMetadata({
 
 export default async function ShopPage({ params }: ShopPageProps) {
   const { slug } = await params;
-  
+
   // Fetch shop and initial accs in parallel on server
   const [shop, initialAccs] = await Promise.all([
     getShop(slug),
